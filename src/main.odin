@@ -440,6 +440,29 @@ create_window :: proc(
 	}
 }
 
+map_window :: proc(socket: os.Socket, window_id: u32) {
+	opcode: u8 : 8
+
+	Request :: struct #packed {
+		opcode:         u8,
+		pad1:           u8,
+		request_length: u16,
+		window_id:      u32,
+	}
+	request := Request {
+		opcode         = opcode,
+		request_length = 2,
+		window_id      = 1,
+	}
+	{
+		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == size_of(Request))
+	}
+
+	response := [8]u8{}
+	os.recv(socket, response[:], 0)
+}
 
 main :: proc() {
 	auth_token := load_auth_token()
@@ -459,8 +482,11 @@ main :: proc() {
 		600,
 		connection_information.root_screen.root_visual_id,
 	)
+
 	gc_id := next_id(window_id, connection_information)
 	create_graphical_context(socket, gc_id, connection_information.root_screen.id)
+
+	map_window(socket, window_id)
 }
 
 
