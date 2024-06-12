@@ -427,7 +427,7 @@ create_window :: proc(
 		width          = width,
 		height         = height,
 		border_width   = border_width,
-		class          = class,
+		class          = CLASS_INPUT_OUTPUT,
 		root_visual_id = root_visual_id,
 		bitmask        = flags,
 		value1         = BACKGROUND_PIXEL_COLOR,
