@@ -132,8 +132,8 @@ load_auth_token :: proc() -> AuthToken {
 
 			token := AuthToken{}
 			mem.copy_non_overlapping(
-				raw_data(auth_entry.auth_data),
 				raw_data(&token),
+				raw_data(auth_entry.auth_data),
 				size_of(AuthToken),
 			)
 			return token
@@ -183,7 +183,7 @@ connect :: proc() -> os.Socket {
 }
 
 
-handshake :: proc(socket: os.Socket, auth_token: AuthToken) {
+handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
 
 	Request :: struct #packed {
 		endianness:             u8,
@@ -203,9 +203,28 @@ handshake :: proc(socket: os.Socket, auth_token: AuthToken) {
 	}
 
 
-	n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
-	assert(err == os.ERROR_NONE)
-	assert(n_sent == size_of(Request))
+	{
+		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == size_of(Request))
+	}
+
+	{
+		n_sent, err := os.send(socket, transmute([]u8)AUTH_ENTRY_MAGIC_COOKIE, 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == len(AUTH_ENTRY_MAGIC_COOKIE))
+	}
+	{
+		padding := [2]u8{0, 0}
+		n_sent, err := os.send(socket, padding[:], 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == 2)
+	}
+	{
+		n_sent, err := os.send(socket, auth_token[:], 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == len(auth_token))
+	}
 
 
 	Response :: struct #packed {
@@ -232,8 +251,7 @@ handshake :: proc(socket: os.Socket, auth_token: AuthToken) {
 	}
 
 	response := Response{}
-	n_recv: u32 = 0
-	n_recv, err = os.recv(socket, mem.ptr_to_bytes(&response), 0)
+	n_recv, err := os.recv(socket, mem.ptr_to_bytes(&response), 0)
 	assert(err == os.ERROR_NONE)
 	assert(n_recv == size_of(Response))
 	assert(response.success == 1)
@@ -249,7 +267,8 @@ handshake :: proc(socket: os.Socket, auth_token: AuthToken) {
 
 main :: proc() {
 	auth_token := load_auth_token()
+	fmt.println(auth_token)
 
 	socket := connect()
-	handshake(socket, auth_token)
+	handshake(socket, &auth_token)
 }
