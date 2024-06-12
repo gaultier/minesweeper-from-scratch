@@ -143,6 +143,7 @@ read_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 	return entry, true
 }
 
+// TODO: Use a local arena as allocator.
 load_auth_token :: proc() -> AuthToken {
 	filename_env := os.get_env("XAUTHORITY")
 	data, read_file_ok := os.read_entire_file_from_filename(filename_env)
