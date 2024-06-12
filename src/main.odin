@@ -18,6 +18,33 @@ AuthEntry :: struct {
 	auth_data: []u8,
 }
 
+
+Screen :: struct #packed {
+	id:             u32,
+	colormap:       u32,
+	black:          u32,
+	white:          u32,
+	input_mask:     u32,
+	height:         u16,
+	width:          u16,
+	height_mm:      u16,
+	width_mm:       u16,
+	maps_max:       u16,
+	maps_min:       u16,
+	root_visual_id: u32,
+	backing_store:  u8,
+	save_unders:    u8,
+	depth:          u8,
+	depths:         u8,
+}
+
+ConnectionInformation :: struct {
+	root_screen:      Screen,
+	resource_id_base: u32,
+	resource_id_mask: u32,
+}
+
+
 AUTH_ENTRY_FAMILY_LOCAL: u16 : 1
 AUTH_ENTRY_MAGIC_COOKIE: string : "MIT-MAGIC-COOKIE-1"
 
@@ -189,12 +216,6 @@ connect :: proc() -> os.Socket {
 }
 
 
-ConnectionInformation :: struct {
-	root_visual_id:   u32,
-	resource_id_base: u32,
-	resource_id_mask: u32,
-}
-
 handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInformation {
 
 	Request :: struct #packed {
@@ -304,21 +325,20 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 	// Skip over the format information (each 8 bytes long).
 	bytes.buffer_next(&read_buffer, 8 * cast(int)dynamic_response.formats_count)
 
-
-	root_visual_id: u32 = 0
+	screen := Screen{}
 	{
-		n_read, err := bytes.buffer_read(&read_buffer, mem.ptr_to_bytes(&root_visual_id))
+		n_read, err := bytes.buffer_read(&read_buffer, mem.ptr_to_bytes(&screen))
 		assert(err == .None)
-		assert(n_read == size_of(root_visual_id))
+		assert(n_read == size_of(screen))
 
-		fmt.println(root_visual_id)
+		fmt.println(screen)
 	}
 
 	return(
 		ConnectionInformation {
-			root_visual_id = root_visual_id,
 			resource_id_base = dynamic_response.resource_id_base,
 			resource_id_mask = dynamic_response.resource_id_mask,
+			root_screen = screen,
 		} \
 	)
 }
@@ -327,16 +347,78 @@ next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
 	return 1 + (info.resource_id_mask & (current_id) | info.resource_id_base)
 }
 
-create_graphical_context :: proc() {
+create_graphical_context :: proc(socket: os.Socket) {
 	opcode: u8 : 55
 
-	Request :: struct {
+	Request :: struct #packed {
 		opcode:   u8,
 		pad1:     u8,
 		length:   u16,
 		id:       u32,
 		drawable: u32,
 		bitmask:  u32,
+	}
+}
+
+create_window :: proc(
+	socket: os.Socket,
+	window_id: u32,
+	parent_id: u32,
+	x: u16,
+	y: u16,
+	width: u16,
+	height: u16,
+	root_visual_id: u32,
+) {
+	FLAG_WIN_BG_PIXEL: u32 : 2
+	FLAG_WIN_EVENT: u32 : 0x800
+	FLAG_COUNT: u16 : 2
+	EVENT_FLAG_EXPOSURE: u32 = 0x80_00
+	flags: u32 : FLAG_WIN_BG_PIXEL | FLAG_WIN_EVENT
+	depth: u8 : 24
+	border_width: u16 : 0
+	class: u16 : 1
+	opcode: u8 : 1
+
+	Request :: struct #packed {
+		opcode:         u8,
+		depth:          u8,
+		request_length: u16,
+		window_id:      u32,
+		parent_id:      u32,
+		x:              u16,
+		y:              u16,
+		width:          u16,
+		height:         u16,
+		border_width:   u16,
+		class:          u16,
+		root_visual_id: u32,
+		bitmask:        u32,
+		value1:         u32,
+		value2:         u32,
+	}
+	request := Request {
+		opcode         = opcode,
+		depth          = depth,
+		request_length = 8 + FLAG_COUNT,
+		window_id      = window_id,
+		parent_id      = parent_id,
+		x              = x,
+		y              = y,
+		width          = width,
+		height         = height,
+		border_width   = border_width,
+		class          = class,
+		root_visual_id = root_visual_id,
+		bitmask        = flags,
+		value1         = 0x00_ff_ff_00,
+		value2         = EVENT_FLAG_EXPOSURE,
+	}
+
+	{
+		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == size_of(Request))
 	}
 }
 
@@ -347,6 +429,19 @@ main :: proc() {
 	socket := connect()
 	connection_information := handshake(socket, &auth_token)
 	fmt.println(connection_information)
+
+	gc_id := next_id(0, connection_information)
+	window_id := next_id(gc_id, connection_information)
+	create_window(
+		socket,
+		window_id,
+		connection_information.root_screen.id,
+		200,
+		200,
+		800,
+		600,
+		connection_information.root_screen.root_visual_id,
+	)
 }
 
 
