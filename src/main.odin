@@ -295,6 +295,11 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
 
 	// Skip over the vendor information.
 	bytes.buffer_next(&read_buffer, cast(int)round_up_4(cast(u32)dynamic_response.vendor_length))
+	// Skip over the format information (each 8 bytes long).
+	bytes.buffer_next(&read_buffer, 8 * dynamic_response.formats_count)
+
+
+	root_id: u32 = 0
 
 
 }
