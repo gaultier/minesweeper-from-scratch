@@ -8,6 +8,7 @@ import "core:mem"
 import "core:net"
 import "core:os"
 import "core:slice"
+import "core:testing"
 
 AuthToken :: [16]u8
 
@@ -19,6 +20,11 @@ AuthEntry :: struct {
 
 AUTH_ENTRY_FAMILY_LOCAL: u16 : 1
 AUTH_ENTRY_MAGIC_COOKIE: string : "MIT-MAGIC-COOKIE-1"
+
+round_up_4 :: proc(x: u32) -> u32 {
+	mask: i32 = -4
+	return transmute(u32)((transmute(i32)x + 3) & mask)
+}
 
 read_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 	entry := AuthEntry{}
@@ -282,9 +288,13 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
 		n_read, err := bytes.buffer_read(&read_buffer, mem.ptr_to_bytes(&dynamic_response))
 		assert(err == .None)
 		assert(n_read == size_of(DynamicResponse))
+
+		fmt.println(dynamic_response)
 	}
 
-	fmt.println(dynamic_response)
+
+	// Skip over the vendor information.
+	bytes.buffer_next(&read_buffer, cast(int)dynamic_response.vendor_length)
 
 
 }
@@ -294,4 +304,18 @@ main :: proc() {
 
 	socket := connect()
 	handshake(socket, &auth_token)
+}
+
+
+@(test)
+test_round_up_4 :: proc(_: ^testing.T) {
+	assert(round_up_4(0) == 0)
+	assert(round_up_4(1) == 4)
+	assert(round_up_4(2) == 4)
+	assert(round_up_4(3) == 4)
+	assert(round_up_4(4) == 4)
+	assert(round_up_4(5) == 8)
+	assert(round_up_4(6) == 8)
+	assert(round_up_4(7) == 8)
+	assert(round_up_4(8) == 8)
 }
