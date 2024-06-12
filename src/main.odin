@@ -327,6 +327,20 @@ next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
 	return 1 + (info.resource_id_mask & (current_id) | info.resource_id_base)
 }
 
+create_graphical_context :: proc() {
+	opcode: u8 : 55
+
+	Request :: struct {
+		opcode:   u8,
+		pad1:     u8,
+		length:   u16,
+		id:       u32,
+		drawable: u32,
+		bitmask:  u32,
+	}
+}
+
+
 main :: proc() {
 	auth_token := load_auth_token()
 
