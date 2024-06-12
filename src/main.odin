@@ -5,7 +5,6 @@ import "core:c"
 import "core:fmt"
 import "core:math/bits"
 import "core:mem"
-import "core:net"
 import "core:os"
 import "core:slice"
 import "core:testing"
@@ -146,8 +145,8 @@ read_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 
 load_auth_token :: proc() -> AuthToken {
 	filename_env := os.get_env("XAUTHORITY")
-	data, ok := os.read_entire_file_from_filename(filename_env)
-	assert(ok)
+	data, read_file_ok := os.read_entire_file_from_filename(filename_env)
+	assert(read_file_ok)
 
 	buffer := bytes.Buffer{}
 	bytes.buffer_init(&buffer, data[:])
