@@ -461,8 +461,39 @@ map_window :: proc(socket: os.Socket, window_id: u32) {
 		assert(n_sent == size_of(Request))
 	}
 
-	response := [32]u8{}
-	os.recv(socket, response[:], 0)
+}
+
+wait_for_events :: proc(socket: os.Socket) {
+	Event :: struct #packed {
+		code:       u8,
+		pad1:       u8,
+		seq_number: u16,
+		window_id:  u32,
+		x:          u16,
+		y:          u16,
+		width:      u16,
+		height:     u16,
+		count:      u16,
+		pad2:       [14]u8,
+	}
+
+	EVENT_EXPOSURE: u8 : 0xc
+
+	for {
+		event := Event{}
+		n_recv, err := os.recv(socket, mem.ptr_to_bytes(&event), 0)
+		if err == os.EPIPE || n_recv == 0 {
+			os.exit(0)
+		}
+
+		assert(err == os.ERROR_NONE)
+		assert(n_recv == size_of(Event))
+
+		switch event.code {
+		case EVENT_EXPOSURE:
+			fmt.println("exposed")
+		}
+	}
 }
 
 main :: proc() {
@@ -489,8 +520,9 @@ main :: proc() {
 		connection_information.root_screen.root_visual_id,
 	)
 
-
 	map_window(socket, window_id)
+
+	wait_for_events(socket)
 }
 
 
