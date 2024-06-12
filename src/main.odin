@@ -344,7 +344,7 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 }
 
 next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
-	return 1 + (info.resource_id_mask & (current_id) | info.resource_id_base)
+	return 1 + ((info.resource_id_mask & (current_id)) | info.resource_id_base)
 }
 
 create_graphical_context :: proc(socket: os.Socket, gc_id: u32, root_id: u32) {
@@ -453,7 +453,7 @@ map_window :: proc(socket: os.Socket, window_id: u32) {
 	request := Request {
 		opcode         = opcode,
 		request_length = 2,
-		window_id      = 1,
+		window_id      = window_id,
 	}
 	{
 		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
@@ -461,7 +461,7 @@ map_window :: proc(socket: os.Socket, window_id: u32) {
 		assert(n_sent == size_of(Request))
 	}
 
-	response := [8]u8{}
+	response := [32]u8{}
 	os.recv(socket, response[:], 0)
 }
 
@@ -472,7 +472,12 @@ main :: proc() {
 	connection_information := handshake(socket, &auth_token)
 	fmt.println(connection_information)
 
-	window_id := next_id(0, connection_information)
+	gc_id := next_id(0, connection_information)
+	fmt.println(gc_id)
+	create_graphical_context(socket, gc_id, connection_information.root_screen.id)
+
+	window_id := next_id(gc_id, connection_information)
+	fmt.println(window_id)
 	create_window(
 		socket,
 		window_id,
@@ -484,8 +489,6 @@ main :: proc() {
 		connection_information.root_screen.root_visual_id,
 	)
 
-	gc_id := next_id(window_id, connection_information)
-	create_graphical_context(socket, gc_id, connection_information.root_screen.id)
 
 	map_window(socket, window_id)
 }
