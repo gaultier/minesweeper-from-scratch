@@ -236,18 +236,24 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
 	}
 
 	static_response := StaticResponse{}
-	n_recv, err := os.recv(socket, mem.ptr_to_bytes(&static_response), 0)
-	assert(err == os.ERROR_NONE)
-	assert(n_recv == size_of(StaticResponse))
-	assert(static_response.success == 1)
+	{
+		n_recv, err := os.recv(socket, mem.ptr_to_bytes(&static_response), 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_recv == size_of(StaticResponse))
+		assert(static_response.success == 1)
 
-	fmt.println(static_response)
+		fmt.println(static_response)
+	}
 
 
 	recv_buf: [1 << 15]u8 = {}
-	n_recv, err = os.recv(socket, recv_buf[:], 0)
-	assert(err == os.ERROR_NONE)
-	assert(n_recv == cast(u32)static_response.length * 4)
+	{
+		assert(len(recv_buf) >= cast(u32)static_response.length * 4)
+
+		n_recv, err := os.recv(socket, recv_buf[:], 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_recv == cast(u32)static_response.length * 4)
+	}
 
 
 	DynamicResponse :: struct #packed {
@@ -267,10 +273,20 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
 		max_keycode:                 u8,
 		pad2:                        u32,
 	}
-	dynamic_response: ^DynamicResponse = transmute(^DynamicResponse)slice.as_ptr(
-		recv_buf[size_of(StaticResponse):][:size_of(DynamicResponse)],
-	)
+
+	read_buffer := bytes.Buffer{}
+	bytes.buffer_init(&read_buffer, recv_buf[:])
+
+	dynamic_response := DynamicResponse{}
+	{
+		n_read, err := bytes.buffer_read(&read_buffer, mem.ptr_to_bytes(&dynamic_response))
+		assert(err == .None)
+		assert(n_read == size_of(DynamicResponse))
+	}
+
 	fmt.println(dynamic_response)
+
+
 }
 
 main :: proc() {
