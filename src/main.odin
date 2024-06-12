@@ -227,47 +227,54 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
 	}
 
 
-	Response :: struct #packed {
+	StaticResponse :: struct #packed {
 		success:       u8,
 		pad1:          u8,
 		major_version: u16,
 		minor_version: u16,
 		length:        u16,
-		// release_number:              u32,
-		// resource_id_base:            u32,
-		// resource_id_mask:            u32,
-		// motion_buffer_size:          u32,
-		// vendor_length:               u16,
-		// maximum_request_length:      u16,
-		// screens_in_root_count:       u8,
-		// formats_count:               u8,
-		// image_byte_order:            u8,
-		// bitmap_format_bit_order:     u8,
-		// bitmap_format_scanline_unit: u8,
-		// bitmap_format_scanline_pad:  u8,
-		// min_keycode:                 u8,
-		// max_keycode:                 u8,
-		// pad2:                        u32,
 	}
 
-	response := Response{}
-	n_recv, err := os.recv(socket, mem.ptr_to_bytes(&response), 0)
+	static_response := StaticResponse{}
+	n_recv, err := os.recv(socket, mem.ptr_to_bytes(&static_response), 0)
 	assert(err == os.ERROR_NONE)
-	assert(n_recv == size_of(Response))
-	assert(response.success == 1)
+	assert(n_recv == size_of(StaticResponse))
+	assert(static_response.success == 1)
 
-	fmt.println(response)
+	fmt.println(static_response)
 
 
 	recv_buf: [1 << 15]u8 = {}
 	n_recv, err = os.recv(socket, recv_buf[:], 0)
 	assert(err == os.ERROR_NONE)
-	assert(n_recv == cast(u32)response.length * 4)
+	assert(n_recv == cast(u32)static_response.length * 4)
+
+
+	DynamicResponse :: struct #packed {
+		release_number:              u32,
+		resource_id_base:            u32,
+		resource_id_mask:            u32,
+		motion_buffer_size:          u32,
+		vendor_length:               u16,
+		maximum_request_length:      u16,
+		screens_in_root_count:       u8,
+		formats_count:               u8,
+		image_byte_order:            u8,
+		bitmap_format_bit_order:     u8,
+		bitmap_format_scanline_unit: u8,
+		bitmap_format_scanline_pad:  u8,
+		min_keycode:                 u8,
+		max_keycode:                 u8,
+		pad2:                        u32,
+	}
+	dynamic_response: ^DynamicResponse = transmute(^DynamicResponse)slice.as_ptr(
+		recv_buf[size_of(StaticResponse):][:size_of(DynamicResponse)],
+	)
+	fmt.println(dynamic_response)
 }
 
 main :: proc() {
 	auth_token := load_auth_token()
-	fmt.println(auth_token)
 
 	socket := connect()
 	handshake(socket, &auth_token)
