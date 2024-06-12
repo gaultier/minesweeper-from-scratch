@@ -347,8 +347,11 @@ next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
 	return 1 + (info.resource_id_mask & (current_id) | info.resource_id_base)
 }
 
-create_graphical_context :: proc(socket: os.Socket) {
+create_graphical_context :: proc(socket: os.Socket, gc_id: u32, root_id: u32) {
 	opcode: u8 : 55
+	FLAG_GC_BG: u32 : 8
+	BITMASK: u32 : FLAG_GC_BG
+	VALUE1: u32 : 0x00_00_ff_00
 
 	Request :: struct #packed {
 		opcode:   u8,
@@ -357,6 +360,21 @@ create_graphical_context :: proc(socket: os.Socket) {
 		id:       u32,
 		drawable: u32,
 		bitmask:  u32,
+		value1:   u32,
+	}
+	request := Request {
+		opcode   = opcode,
+		length   = 5,
+		id       = gc_id,
+		drawable = root_id,
+		bitmask  = BITMASK,
+		value1   = VALUE1,
+	}
+
+	{
+		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == size_of(Request))
 	}
 }
 
@@ -430,8 +448,7 @@ main :: proc() {
 	connection_information := handshake(socket, &auth_token)
 	fmt.println(connection_information)
 
-	gc_id := next_id(0, connection_information)
-	window_id := next_id(gc_id, connection_information)
+	window_id := next_id(0, connection_information)
 	create_window(
 		socket,
 		window_id,
@@ -442,6 +459,8 @@ main :: proc() {
 		600,
 		connection_information.root_screen.root_visual_id,
 	)
+	gc_id := next_id(window_id, connection_information)
+	create_graphical_context(socket, gc_id, connection_information.root_screen.id)
 }
 
 
