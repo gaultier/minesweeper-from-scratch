@@ -21,7 +21,7 @@ AuthEntry :: struct {
 AUTH_ENTRY_FAMILY_LOCAL: u16 : 1
 AUTH_ENTRY_MAGIC_COOKIE: string : "MIT-MAGIC-COOKIE-1"
 
-round_up_4 :: proc(x: u32) -> u32 {
+round_up_4 :: #force_inline proc(x: u32) -> u32 {
 	mask: i32 = -4
 	return transmute(u32)((transmute(i32)x + 3) & mask)
 }
@@ -294,7 +294,7 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
 
 
 	// Skip over the vendor information.
-	bytes.buffer_next(&read_buffer, cast(int)dynamic_response.vendor_length)
+	bytes.buffer_next(&read_buffer, cast(int)round_up_4(cast(u32)dynamic_response.vendor_length))
 
 
 }
