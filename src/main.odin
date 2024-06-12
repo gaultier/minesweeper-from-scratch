@@ -22,20 +22,20 @@ AuthEntry :: struct {
 Screen :: struct #packed {
 	id:             u32,
 	colormap:       u32,
-	black:          u32,
 	white:          u32,
+	black:          u32,
 	input_mask:     u32,
-	height:         u16,
 	width:          u16,
-	height_mm:      u16,
+	height:         u16,
 	width_mm:       u16,
-	maps_max:       u16,
+	height_mm:      u16,
 	maps_min:       u16,
+	maps_max:       u16,
 	root_visual_id: u32,
 	backing_store:  u8,
 	save_unders:    u8,
-	depth:          u8,
-	depths:         u8,
+	root_depth:     u8,
+	depths_count:   u8,
 }
 
 ConnectionInformation :: struct {
