@@ -395,8 +395,9 @@ create_window :: proc(
 	flags: u32 : FLAG_WIN_BG_PIXEL | FLAG_WIN_EVENT
 	depth: u8 : 24
 	border_width: u16 : 0
-	class: u16 : 1
+	CLASS_INPUT_OUTPUT: u16 : 1
 	opcode: u8 : 1
+	BACKGROUND_PIXEL_COLOR: u32 : 0x00_ff_ff_00
 
 	Request :: struct #packed {
 		opcode:         u8,
@@ -429,7 +430,7 @@ create_window :: proc(
 		class          = class,
 		root_visual_id = root_visual_id,
 		bitmask        = flags,
-		value1         = 0x00_ff_ff_00,
+		value1         = BACKGROUND_PIXEL_COLOR,
 		value2         = EVENT_FLAG_EXPOSURE,
 	}
 
