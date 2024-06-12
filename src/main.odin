@@ -3,6 +3,7 @@ package main
 import "core:c"
 import "core:fmt"
 import "core:mem"
+import "core:net"
 import "core:os"
 
 connect :: proc() -> os.Socket {
@@ -12,10 +13,7 @@ connect :: proc() -> os.Socket {
 	}
 
 	socket, err := os.socket(os.AF_UNIX, os.SOCK_STREAM, 0)
-	if err != os.ERROR_NONE {
-		fmt.eprintf("failed to create socket %s\n", err)
-		os.exit(1)
-	}
+	assert(err == os.ERROR_NONE)
 
 	socket_path := [?]c.char {
 		'/',
@@ -38,14 +36,11 @@ connect :: proc() -> os.Socket {
 	}
 	addr := SockaddrUn {
 		sa_family = cast(u16)os.AF_UNIX,
-		sa_data   = {},
 	}
 	mem.copy_non_overlapping(&addr.sa_data, raw_data(&socket_path), len(socket_path))
 
-	if err := os.connect(socket, cast(^os.SOCKADDR)&addr, size_of(addr)); err != os.ERROR_NONE {
-		fmt.eprintf("failed to connect %s\n", err)
-		os.exit(1)
-	}
+	err = os.connect(socket, cast(^os.SOCKADDR)&addr, size_of(addr))
+	assert(err == os.ERROR_NONE)
 
 	return socket
 }
@@ -55,20 +50,59 @@ handshake :: proc(socket: os.Socket) {
 	authorization: string : "MIT-MAGIC-COOKIE-1"
 
 	Request :: struct #packed {
-		endianness:                   u8,
-		pad1:                         u8,
-		major_version:                u16,
-		minor_version:                u16,
-		authorization_len:            u16,
-		authorization_data_len, pad2: u16,
+		endianness:             u8,
+		pad1:                   u8,
+		major_version:          u16,
+		minor_version:          u16,
+		authorization_len:      u16,
+		authorization_data_len: u16,
+		pad2:                   u16,
 	}
+
 	request := Request {
-		endianness        = 'l',
-		major_version     = 11,
-		authorization_len = len(authorization),
+		endianness             = 'l',
+		major_version          = 11,
+		authorization_len      = 0, // len(authorization),
+		authorization_data_len = 0, // 16,
 	}
+
+
+	n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
+	assert(err == os.ERROR_NONE)
+	assert(n_sent == size_of(Request))
+
+
+	Response :: struct #packed {
+		success:                     u8,
+		pad1:                        u8,
+		major_version:               u16,
+		minor_version:               u16,
+		length:                      u16,
+		release_number:              u32,
+		resource_id_base:            u32,
+		resource_id_mask:            u32,
+		motion_buffer_size:          u32,
+		vendor_length:               u16,
+		maximum_request_length:      u16,
+		screens_in_root_count:       u8,
+		formats_count:               u8,
+		image_byte_order:            u8,
+		bitmap_format_bit_order:     u8,
+		bitmap_format_scanline_unit: u8,
+		bitmap_format_scanline_pad:  u8,
+		min_keycode:                 u8,
+		max_keycode:                 u8,
+		pad2:                        u32,
+	}
+
+	response := Response{}
+	n_recv: u32 = 0
+	n_recv, err = os.recv(socket, mem.ptr_to_bytes(&response), 0)
+	assert(err == os.ERROR_NONE)
+	assert(n_recv == size_of(Response))
 }
 
 main :: proc() {
 	socket := connect()
+	handshake(socket)
 }
