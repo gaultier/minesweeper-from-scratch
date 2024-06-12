@@ -483,7 +483,7 @@ wait_for_events :: proc(socket: os.Socket) {
 		event := Event{}
 		n_recv, err := os.recv(socket, mem.ptr_to_bytes(&event), 0)
 		if err == os.EPIPE || n_recv == 0 {
-			os.exit(0)
+			os.exit(0) // The end.
 		}
 
 		assert(err == os.ERROR_NONE)
