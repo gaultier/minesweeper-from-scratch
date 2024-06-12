@@ -189,7 +189,13 @@ connect :: proc() -> os.Socket {
 }
 
 
-handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
+ConnectionInformation :: struct {
+	root_visual_id:   u32,
+	resource_id_base: u32,
+	resource_id_mask: u32,
+}
+
+handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInformation {
 
 	Request :: struct #packed {
 		endianness:             u8,
@@ -299,21 +305,34 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) {
 	bytes.buffer_next(&read_buffer, 8 * cast(int)dynamic_response.formats_count)
 
 
-	root_id: u32 = 0
+	root_visual_id: u32 = 0
 	{
-		n_read, err := bytes.buffer_read(&read_buffer, mem.ptr_to_bytes(&root_id))
+		n_read, err := bytes.buffer_read(&read_buffer, mem.ptr_to_bytes(&root_visual_id))
 		assert(err == .None)
-		assert(n_read == size_of(root_id))
+		assert(n_read == size_of(root_visual_id))
 
-		fmt.println(root_id)
+		fmt.println(root_visual_id)
 	}
+
+	return(
+		ConnectionInformation {
+			root_visual_id = root_visual_id,
+			resource_id_base = dynamic_response.resource_id_base,
+			resource_id_mask = dynamic_response.resource_id_mask,
+		} \
+	)
+}
+
+next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
+	return 1 + (info.resource_id_mask & (current_id) | info.resource_id_base)
 }
 
 main :: proc() {
 	auth_token := load_auth_token()
 
 	socket := connect()
-	handshake(socket, &auth_token)
+	connection_information := handshake(socket, &auth_token)
+	fmt.println(connection_information)
 }
 
 
