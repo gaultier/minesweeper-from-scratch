@@ -19,7 +19,6 @@ AuthEntry :: struct {
 	auth_data: []u8,
 }
 
-
 Screen :: struct #packed {
 	id:             u32,
 	colormap:       u32,
@@ -325,13 +324,11 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 		fmt.println(screen)
 	}
 
-	return(
-		ConnectionInformation {
-			resource_id_base = dynamic_response.resource_id_base,
-			resource_id_mask = dynamic_response.resource_id_mask,
-			root_screen = screen,
-		} \
-	)
+	return (ConnectionInformation {
+				resource_id_base = dynamic_response.resource_id_base,
+				resource_id_mask = dynamic_response.resource_id_mask,
+				root_screen = screen,
+			})
 }
 
 next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
@@ -467,7 +464,7 @@ put_image :: proc(
 ) {
 	opcode: u8 : 72
 
-	Request :: struct {
+	Request :: struct #packed {
 		opcode:         u8,
 		format:         u8,
 		request_length: u16,
@@ -588,7 +585,7 @@ copy_area :: proc(
 	height: u16,
 ) {
 	opcode: u8 : 62
-	Request :: struct {
+	Request :: struct #packed {
 		opcode:         u8,
 		pad1:           u8,
 		request_length: u16,
