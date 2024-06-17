@@ -511,31 +511,26 @@ put_image :: proc(
 	}
 }
 
-render :: proc(
-	socket: os.Socket,
-	window_id: u32,
-	gc_id: u32,
-	connection_information: ConnectionInformation,
-	img_mine: ^png.Image,
-	img_mine_data: []u8,
-) {
-	image_id := next_id(window_id, connection_information)
-	img_w: u16 = cast(u16)img_mine.width
-	img_h: u16 = cast(u16)img_mine.height
-	img_bytes_per_pixel := 3
-	img_depth: u8 = 24
-	put_image(socket, window_id, gc_id, img_w, img_h, 0, 0, img_depth, img_mine_data)
+render :: proc(socket: os.Socket, scene: ^Scene) {
+	// image_id := next_id(window_id, connection_information)
+	// img_w: u16 = cast(u16)sprite.width
+	// img_h: u16 = cast(u16)sprite.height
+	// img_bytes_per_pixel := 3
+	// img_depth: u8 = 24
+	// put_image(socket, window_id, gc_id, img_w, img_h, 0, 0, img_depth, sprite_data)
 	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 0, 0, img_w, img_h)
 }
 
-wait_for_events :: proc(
-	socket: os.Socket,
-	window_id: u32,
-	gc_id: u32,
+Scene :: struct {
+	window_id:              u32,
+	gc_id:                  u32,
 	connection_information: ConnectionInformation,
-	img_mine: ^png.Image,
-	img_mine_data: []u8,
-) {
+	sprite_data:            []u8,
+	sprite_pixmap_id:       u32,
+	sprite_width:           u16,
+}
+
+wait_for_events :: proc(socket: os.Socket, scene: ^Scene) {
 	Event :: struct #packed {
 		code:       u8,
 		pad1:       u8,
@@ -565,7 +560,7 @@ wait_for_events :: proc(
 		case EVENT_EXPOSURE:
 			fmt.println("exposed")
 
-			render(socket, window_id, gc_id, connection_information, img_mine, img_mine_data)
+			render(socket, scene)
 		}
 	}
 }
@@ -618,22 +613,53 @@ copy_area :: proc(
 	}
 }
 
+create_pixmap :: proc(
+	socket: os.Socket,
+	window_id: u32,
+	pixmap_id: u32,
+	width: u16,
+	height: u16,
+	depth: u8,
+) {
+	opcode: u8 : 53
+
+	Request :: struct #packed {
+		opcode:         u8,
+		depth:          u8,
+		request_length: u16,
+		pixmap_id:      u32,
+		drawable_id:    u32,
+		width:          u16,
+		height:         u16,
+	}
+
+	request := Request {
+		opcode         = opcode,
+		depth          = depth,
+		request_length = 4,
+		pixmap_id      = pixmap_id,
+		drawable_id    = window_id,
+		width          = width,
+		height         = height,
+	}
+
+	{
+		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == size_of(Request))
+	}
+}
+
 main :: proc() {
-	img_mine, err := png.load_from_file("sprite.png", {})
+	sprite, err := png.load_from_file("sprite.png", {})
 	assert(err == nil)
-	fmt.println(
-		len(img_mine.pixels.buf),
-		img_mine.height,
-		img_mine.width,
-		img_mine.channels,
-		img_mine.depth,
-	)
-	img_mine_data := make([]u8, img_mine.height * img_mine.width * 4)
-	for i := 0; i < img_mine.height * img_mine.width - 3; i += 1 {
-		img_mine_data[i * 4 + 0] = img_mine.pixels.buf[i * 3 + 2] // R -> B
-		img_mine_data[i * 4 + 1] = img_mine.pixels.buf[i * 3 + 1] // G -> G
-		img_mine_data[i * 4 + 2] = img_mine.pixels.buf[i * 3 + 0] // B -> R
-		img_mine_data[i * 4 + 3] = 0 // pad
+	fmt.println(len(sprite.pixels.buf), sprite.height, sprite.width, sprite.channels, sprite.depth)
+	sprite_data := make([]u8, sprite.height * sprite.width * 4)
+	for i := 0; i < sprite.height * sprite.width - 3; i += 1 {
+		sprite_data[i * 4 + 0] = sprite.pixels.buf[i * 3 + 2] // R -> B
+		sprite_data[i * 4 + 1] = sprite.pixels.buf[i * 3 + 1] // G -> G
+		sprite_data[i * 4 + 2] = sprite.pixels.buf[i * 3 + 0] // B -> R
+		sprite_data[i * 4 + 3] = 0 // pad
 	}
 
 
@@ -644,11 +670,9 @@ main :: proc() {
 	fmt.println(connection_information)
 
 	gc_id := next_id(0, connection_information)
-	fmt.println(gc_id)
 	create_graphical_context(socket, gc_id, connection_information.root_screen.id)
 
 	window_id := next_id(gc_id, connection_information)
-	fmt.println(window_id)
 	create_window(
 		socket,
 		window_id,
@@ -660,9 +684,27 @@ main :: proc() {
 		connection_information.root_screen.root_visual_id,
 	)
 
+	pixmap_id := next_id(window_id, connection_information)
+	create_pixmap(
+		socket,
+		window_id,
+		pixmap_id,
+		cast(u16)sprite.width,
+		cast(u16)sprite.height,
+		cast(u8)sprite.depth,
+	)
+
 	map_window(socket, window_id)
 
-	wait_for_events(socket, window_id, gc_id, connection_information, img_mine, img_mine_data)
+	scene := Scene {
+		window_id              = window_id,
+		gc_id                  = gc_id,
+		sprite_pixmap_id       = pixmap_id,
+		connection_information = connection_information,
+		sprite_width           = cast(u16)sprite.width,
+		sprite_data            = sprite_data,
+	}
+	wait_for_events(socket, &scene)
 }
 
 
