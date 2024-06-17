@@ -6,6 +6,7 @@ import "core:fmt"
 import "core:math/bits"
 import "core:mem"
 import "core:os"
+import "core:path/filepath"
 import "core:slice"
 import "core:testing"
 
@@ -144,10 +145,15 @@ read_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 }
 
 // TODO: Use a local arena as allocator.
-load_auth_token :: proc() -> AuthToken {
+load_auth_token :: proc() -> (token: AuthToken, ok: bool) {
 	filename_env := os.get_env("XAUTHORITY")
-	data, read_file_ok := os.read_entire_file_from_filename(filename_env)
-	assert(read_file_ok)
+
+	filename :=
+		len(filename_env) != 0 \
+		? filename_env \
+		: filepath.join([]string{os.get_env("HOME"), ".Xauthority"})
+
+	data := os.read_entire_file_from_filename(filename) or_return
 
 	buffer := bytes.Buffer{}
 	bytes.buffer_init(&buffer, data[:])
@@ -169,11 +175,11 @@ load_auth_token :: proc() -> AuthToken {
 				raw_data(auth_entry.auth_data),
 				size_of(AuthToken),
 			)
-			return token
+			return token, true
 		}
 	}
 
-	os.exit(1)
+	return {}, false
 }
 
 connect :: proc() -> os.Socket {
@@ -185,34 +191,18 @@ connect :: proc() -> os.Socket {
 	socket, err := os.socket(os.AF_UNIX, os.SOCK_STREAM, 0)
 	assert(err == os.ERROR_NONE)
 
-	socket_path := [?]c.char {
-		'/',
-		't',
-		'm',
-		'p',
-		'/',
-		'.',
-		'X',
-		'1',
-		'1',
-		'-',
-		'u',
-		'n',
-		'i',
-		'x',
-		'/',
-		'X',
-		'0',
-	}
-	addr := SockaddrUn {
-		sa_family = cast(u16)os.AF_UNIX,
-	}
-	mem.copy_non_overlapping(&addr.sa_data, raw_data(&socket_path), len(socket_path))
+	possible_socket_paths := [2]string{"/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"}
+	for &socket_path in possible_socket_paths {
+		addr := SockaddrUn {
+			sa_family = cast(u16)os.AF_UNIX,
+		}
+		mem.copy_non_overlapping(&addr.sa_data, raw_data(socket_path), len(socket_path))
 
-	err = os.connect(socket, cast(^os.SOCKADDR)&addr, size_of(addr))
-	assert(err == os.ERROR_NONE)
+		err = os.connect(socket, cast(^os.SOCKADDR)&addr, size_of(addr))
+		if (err == os.ERROR_NONE) {return socket}
+	}
 
-	return socket
+	os.exit(1)
 }
 
 
@@ -334,13 +324,11 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 		fmt.println(screen)
 	}
 
-	return(
-		ConnectionInformation {
-			resource_id_base = dynamic_response.resource_id_base,
-			resource_id_mask = dynamic_response.resource_id_mask,
-			root_screen = screen,
-		} \
-	)
+	return (ConnectionInformation {
+				resource_id_base = dynamic_response.resource_id_base,
+				resource_id_mask = dynamic_response.resource_id_mask,
+				root_screen = screen,
+			})
 }
 
 next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
@@ -497,7 +485,7 @@ wait_for_events :: proc(socket: os.Socket) {
 }
 
 main :: proc() {
-	auth_token := load_auth_token()
+	auth_token, ok := load_auth_token()
 
 	socket := connect()
 	connection_information := handshake(socket, &auth_token)
