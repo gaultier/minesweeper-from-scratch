@@ -623,11 +623,15 @@ main :: proc() {
 	map_window(socket, window_id)
 
 	image_id := next_id(window_id, connection_information)
-	image_data := make([]u8, 1 * 1 * 3)
+	img_w: u16 = 8
+	img_h: u16 = 8
+	img_depth: u8 = 24
+	img_bytes_per_pixel := 3
+	image_data := make([]u8, cast(int)img_w * cast(int)img_h * cast(int)img_bytes_per_pixel)
 	for &x in image_data {
-		x = 120
+		x = 0
 	}
-	put_image(socket, window_id, gc_id, 1, 1, 0, 0, 24, image_data)
+	put_image(socket, window_id, gc_id, img_w, img_h, 0, 0, img_depth, image_data)
 	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 50, 10, 200, 300)
 	wait_for_events(socket)
 }
