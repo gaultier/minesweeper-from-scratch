@@ -3,6 +3,7 @@ package main
 import "core:bytes"
 import "core:c"
 import "core:fmt"
+import "core:image/png"
 import "core:math/bits"
 import "core:mem"
 import "core:os"
@@ -515,20 +516,15 @@ render :: proc(
 	window_id: u32,
 	gc_id: u32,
 	connection_information: ConnectionInformation,
+	img_mine: ^png.Image,
+	img_mine_data: []u8,
 ) {
 	image_id := next_id(window_id, connection_information)
-	img_w: u16 = 10
-	img_h: u16 = 10
-	img_depth: u8 = 24
+	img_w: u16 = cast(u16)img_mine.width
+	img_h: u16 = cast(u16)img_mine.height
 	img_bytes_per_pixel := 3
-	image_data := make([]u8, cast(int)img_w * cast(int)img_h * 4)
-	for i := 0; i < len(image_data) - 4; i += 4 {
-		image_data[i + 0] = 0 // B
-		image_data[i + 1] = 0 // G
-		image_data[i + 2] = 0xff // R
-		image_data[i + 3] = 0
-	}
-	put_image(socket, window_id, gc_id, img_w, img_h, 50, 100, img_depth, image_data)
+	img_depth: u8 = 24
+	put_image(socket, window_id, gc_id, img_w, img_h, 0, 0, img_depth, img_mine_data)
 	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 0, 0, img_w, img_h)
 }
 
@@ -537,6 +533,8 @@ wait_for_events :: proc(
 	window_id: u32,
 	gc_id: u32,
 	connection_information: ConnectionInformation,
+	img_mine: ^png.Image,
+	img_mine_data: []u8,
 ) {
 	Event :: struct #packed {
 		code:       u8,
@@ -567,7 +565,7 @@ wait_for_events :: proc(
 		case EVENT_EXPOSURE:
 			fmt.println("exposed")
 
-			render(socket, window_id, gc_id, connection_information)
+			render(socket, window_id, gc_id, connection_information, img_mine, img_mine_data)
 		}
 	}
 }
@@ -621,6 +619,18 @@ copy_area :: proc(
 }
 
 main :: proc() {
+	img_mine, err := png.load_from_file("mine.png", {})
+	assert(err == nil)
+	fmt.println(len(img_mine.pixels.buf), img_mine.height, img_mine.width)
+	img_mine_data := make([]u8, img_mine.height * img_mine.width * 4)
+	for i := 0; i < img_mine.height * img_mine.width - 3; i += 1 {
+		img_mine_data[i * 4 + 0] = img_mine.pixels.buf[i * 3 + 3] // B
+		img_mine_data[i * 4 + 1] = img_mine.pixels.buf[i * 3 + 2] // G
+		img_mine_data[i * 4 + 2] = img_mine.pixels.buf[i * 3 + 1] // R
+		img_mine_data[i * 4 + 3] = 0 // pad
+	}
+
+
 	auth_token, ok := load_auth_token()
 
 	socket := connect()
@@ -646,7 +656,7 @@ main :: proc() {
 
 	map_window(socket, window_id)
 
-	wait_for_events(socket, window_id, gc_id, connection_information)
+	wait_for_events(socket, window_id, gc_id, connection_information, img_mine, img_mine_data)
 }
 
 
