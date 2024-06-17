@@ -460,8 +460,8 @@ put_image :: proc(
 	gc_id: u32,
 	width: u16,
 	height: u16,
-	x: u16,
-	y: u16,
+	dst_x: u16,
+	dst_y: u16,
 	depth: u8,
 	data: []u8,
 ) {
@@ -493,8 +493,8 @@ put_image :: proc(
 		gc_id          = gc_id,
 		width          = width,
 		height         = height,
-		dst_x          = x,
-		dst_y          = y,
+		dst_x          = dst_x,
+		dst_y          = dst_y,
 		depth          = depth,
 	}
 	{
@@ -522,15 +522,15 @@ render :: proc(
 	connection_information: ConnectionInformation,
 ) {
 	image_id := next_id(window_id, connection_information)
-	img_w: u16 = 8
-	img_h: u16 = 8
+	img_w: u16 = 10
+	img_h: u16 = 10
 	img_depth: u8 = 24
 	img_bytes_per_pixel := 3
-	image_data := make([]u8, cast(int)img_w * cast(int)img_h * cast(int)img_bytes_per_pixel)
+	image_data := make([]u8, cast(int)img_w * cast(int)img_h * 4)
 	for &x in image_data {
-		x = 0
+		x = 120
 	}
-	put_image(socket, window_id, gc_id, img_w, img_h, 0, 0, img_depth, image_data)
+	put_image(socket, window_id, gc_id, img_w, img_h, 50, 100, img_depth, image_data)
 	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 0, 0, img_w, img_h)
 }
 
