@@ -483,7 +483,6 @@ put_image :: proc(
 	}
 
 	data_length_padded := round_up_4(cast(u32)len(data))
-	fmt.println("[D001]", len(data), cast(u16)(6 + data_length_padded / 4))
 
 	request := Request {
 		opcode         = opcode,
@@ -512,7 +511,6 @@ put_image :: proc(
 		assert(err == .NONE)
 		assert(n_sent == size_of(Request) + len(data) + cast(int)padding_len)
 	}
-
 }
 
 render :: proc(
