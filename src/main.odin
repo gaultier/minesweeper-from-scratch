@@ -8,6 +8,7 @@ import "core:mem"
 import "core:os"
 import "core:path/filepath"
 import "core:slice"
+import "core:sys/linux"
 import "core:testing"
 
 AuthToken :: [16]u8
@@ -482,7 +483,6 @@ put_image :: proc(
 	}
 
 	data_length_padded := round_up_4(cast(u32)len(data))
-	assert(data_length_padded == cast(u32)len(data))
 	fmt.println("[D001]", len(data), cast(u16)(6 + data_length_padded / 4))
 
 	request := Request {
@@ -498,22 +498,21 @@ put_image :: proc(
 		depth          = depth,
 	}
 	{
-		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
-		assert(err == os.ERROR_NONE)
-		assert(n_sent == size_of(Request))
-	}
-	{
-		n_sent, err := os.send(socket, data, 0)
-		assert(err == os.ERROR_NONE)
-		assert(n_sent == cast(u32)len(data))
+		padding := [4]u8{0, 0, 0, 0}
+		padding_len := data_length_padded - cast(u32)len(data)
+
+		n_sent, err := linux.writev(
+			cast(linux.Fd)socket,
+			[]linux.IO_Vec {
+				{base = &request, len = size_of(Request)},
+				{base = raw_data(data), len = len(data)},
+				{base = raw_data(data), len = cast(uint)padding_len},
+			},
+		)
+		assert(err == .NONE)
+		assert(n_sent == size_of(Request) + len(data) + cast(int)padding_len)
 	}
 
-	{
-		msg := [32]u8{}
-		n_recv, err := os.recv(socket, msg[:], 0)
-		assert(err == os.ERROR_NONE)
-		fmt.println("Err: {}", msg[:n_recv])
-	}
 }
 
 wait_for_events :: proc(socket: os.Socket) {
@@ -624,11 +623,11 @@ main :: proc() {
 	map_window(socket, window_id)
 
 	image_id := next_id(window_id, connection_information)
-	image_data := make([]u8, 100 * 100 * 3)
+	image_data := make([]u8, 1 * 1 * 3)
 	for &x in image_data {
 		x = 120
 	}
-	put_image(socket, window_id, gc_id, 100, 100, 0, 0, 24, image_data)
+	put_image(socket, window_id, gc_id, 1, 1, 0, 0, 24, image_data)
 	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 50, 10, 200, 300)
 	wait_for_events(socket)
 }
