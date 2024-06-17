@@ -619,14 +619,20 @@ copy_area :: proc(
 }
 
 main :: proc() {
-	img_mine, err := png.load_from_file("mine.png", {})
+	img_mine, err := png.load_from_file("sprite.png", {})
 	assert(err == nil)
-	fmt.println(len(img_mine.pixels.buf), img_mine.height, img_mine.width)
+	fmt.println(
+		len(img_mine.pixels.buf),
+		img_mine.height,
+		img_mine.width,
+		img_mine.channels,
+		img_mine.depth,
+	)
 	img_mine_data := make([]u8, img_mine.height * img_mine.width * 4)
 	for i := 0; i < img_mine.height * img_mine.width - 3; i += 1 {
-		img_mine_data[i * 4 + 0] = img_mine.pixels.buf[i * 3 + 3] // B
-		img_mine_data[i * 4 + 1] = img_mine.pixels.buf[i * 3 + 2] // G
-		img_mine_data[i * 4 + 2] = img_mine.pixels.buf[i * 3 + 1] // R
+		img_mine_data[i * 4 + 0] = img_mine.pixels.buf[i * 3 + 2] // R -> B
+		img_mine_data[i * 4 + 1] = img_mine.pixels.buf[i * 3 + 1] // G -> G
+		img_mine_data[i * 4 + 2] = img_mine.pixels.buf[i * 3 + 0] // B -> R
 		img_mine_data[i * 4 + 3] = 0 // pad
 	}
 
