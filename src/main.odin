@@ -324,11 +324,13 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 		fmt.println(screen)
 	}
 
-	return (ConnectionInformation {
-				resource_id_base = dynamic_response.resource_id_base,
-				resource_id_mask = dynamic_response.resource_id_mask,
-				root_screen = screen,
-			})
+	return(
+		ConnectionInformation {
+			resource_id_base = dynamic_response.resource_id_base,
+			resource_id_mask = dynamic_response.resource_id_mask,
+			root_screen = screen,
+		} \
+	)
 }
 
 next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
@@ -451,6 +453,69 @@ map_window :: proc(socket: os.Socket, window_id: u32) {
 
 }
 
+put_image :: proc(
+	socket: os.Socket,
+	drawable_id: u32,
+	gc_id: u32,
+	width: u16,
+	height: u16,
+	x: u16,
+	y: u16,
+	depth: u8,
+	data: []u8,
+) {
+	opcode: u8 : 72
+
+	Request :: struct {
+		opcode:         u8,
+		format:         u8,
+		request_length: u16,
+		drawable_id:    u32,
+		gc_id:          u32,
+		width:          u16,
+		height:         u16,
+		dst_x:          u16,
+		dst_y:          u16,
+		left_pad:       u8,
+		depth:          u8,
+		pad1:           u16,
+	}
+
+	data_length_padded := round_up_4(cast(u32)len(data))
+	assert(data_length_padded == cast(u32)len(data))
+	fmt.println("[D001]", len(data), cast(u16)(6 + data_length_padded / 4))
+
+	request := Request {
+		opcode         = opcode,
+		format         = 2, // ZPixmap
+		request_length = cast(u16)(6 + data_length_padded / 4),
+		drawable_id    = drawable_id,
+		gc_id          = gc_id,
+		width          = width,
+		height         = height,
+		dst_x          = x,
+		dst_y          = y,
+		depth          = depth,
+	}
+	{
+		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == size_of(Request))
+	}
+	{
+		n_sent, err := os.send(socket, data, 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == cast(u32)len(data))
+	}
+
+	{
+		msg := [32]u8{}
+		n_recv, err := os.recv(socket, msg[:], 0)
+		assert(err == os.ERROR_NONE)
+		fmt.println("Err: {}", msg[:n_recv])
+	}
+}
+
 wait_for_events :: proc(socket: os.Socket) {
 	Event :: struct #packed {
 		code:       u8,
@@ -484,6 +549,54 @@ wait_for_events :: proc(socket: os.Socket) {
 	}
 }
 
+copy_area :: proc(
+	socket: os.Socket,
+	src_id: u32,
+	dst_id: u32,
+	gc_id: u32,
+	src_x: u16,
+	src_y: u16,
+	dst_x: u16,
+	dst_y: u16,
+	width: u16,
+	height: u16,
+) {
+	opcode: u8 : 62
+	Request :: struct {
+		opcode:         u8,
+		pad1:           u8,
+		request_length: u16,
+		src_id:         u32,
+		dst_id:         u32,
+		gc_id:          u32,
+		src_x:          u16,
+		src_y:          u16,
+		dst_x:          u16,
+		dst_y:          u16,
+		width:          u16,
+		height:         u16,
+	}
+
+	request := Request {
+		opcode         = opcode,
+		request_length = 7,
+		src_id         = src_id,
+		dst_id         = dst_id,
+		gc_id          = gc_id,
+		src_x          = src_x,
+		src_y          = src_y,
+		dst_x          = dst_x,
+		dst_y          = dst_y,
+		width          = width,
+		height         = height,
+	}
+	{
+		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
+		assert(err == os.ERROR_NONE)
+		assert(n_sent == size_of(Request))
+	}
+}
+
 main :: proc() {
 	auth_token, ok := load_auth_token()
 
@@ -510,6 +623,13 @@ main :: proc() {
 
 	map_window(socket, window_id)
 
+	image_id := next_id(window_id, connection_information)
+	image_data := make([]u8, 100 * 100 * 3)
+	for &x in image_data {
+		x = 120
+	}
+	put_image(socket, window_id, gc_id, 100, 100, 0, 0, 24, image_data)
+	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 50, 10, 200, 300)
 	wait_for_events(socket)
 }
 
