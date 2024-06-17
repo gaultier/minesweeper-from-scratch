@@ -515,7 +515,31 @@ put_image :: proc(
 
 }
 
-wait_for_events :: proc(socket: os.Socket) {
+render :: proc(
+	socket: os.Socket,
+	window_id: u32,
+	gc_id: u32,
+	connection_information: ConnectionInformation,
+) {
+	image_id := next_id(window_id, connection_information)
+	img_w: u16 = 8
+	img_h: u16 = 8
+	img_depth: u8 = 24
+	img_bytes_per_pixel := 3
+	image_data := make([]u8, cast(int)img_w * cast(int)img_h * cast(int)img_bytes_per_pixel)
+	for &x in image_data {
+		x = 0
+	}
+	put_image(socket, window_id, gc_id, img_w, img_h, 0, 0, img_depth, image_data)
+	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 0, 0, img_w, img_h)
+}
+
+wait_for_events :: proc(
+	socket: os.Socket,
+	window_id: u32,
+	gc_id: u32,
+	connection_information: ConnectionInformation,
+) {
 	Event :: struct #packed {
 		code:       u8,
 		pad1:       u8,
@@ -544,6 +568,8 @@ wait_for_events :: proc(socket: os.Socket) {
 		switch event.code {
 		case EVENT_EXPOSURE:
 			fmt.println("exposed")
+
+			render(socket, window_id, gc_id, connection_information)
 		}
 	}
 }
@@ -622,18 +648,7 @@ main :: proc() {
 
 	map_window(socket, window_id)
 
-	image_id := next_id(window_id, connection_information)
-	img_w: u16 = 8
-	img_h: u16 = 8
-	img_depth: u8 = 24
-	img_bytes_per_pixel := 3
-	image_data := make([]u8, cast(int)img_w * cast(int)img_h * cast(int)img_bytes_per_pixel)
-	for &x in image_data {
-		x = 0
-	}
-	put_image(socket, window_id, gc_id, img_w, img_h, 0, 0, img_depth, image_data)
-	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 50, 10, 200, 300)
-	wait_for_events(socket)
+	wait_for_events(socket, window_id, gc_id, connection_information)
 }
 
 
