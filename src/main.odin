@@ -512,12 +512,22 @@ put_image :: proc(
 }
 
 render :: proc(socket: os.Socket, scene: ^Scene) {
-	// image_id := next_id(window_id, connection_information)
-	// img_w: u16 = cast(u16)sprite.width
-	// img_h: u16 = cast(u16)sprite.height
-	// img_bytes_per_pixel := 3
-	// img_depth: u8 = 24
-	// put_image(socket, window_id, gc_id, img_w, img_h, 0, 0, img_depth, sprite_data)
+	image_id := next_id(scene.sprite_pixmap_id, scene.connection_information)
+	img_w: u16 = scene.sprite_width
+	img_h: u16 = scene.sprite_height
+	img_bytes_per_pixel := 3
+	img_depth: u8 = 24
+	put_image(
+		socket,
+		scene.window_id,
+		scene.gc_id,
+		img_w,
+		img_h,
+		0,
+		0,
+		img_depth,
+		scene.sprite_data,
+	)
 	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 0, 0, img_w, img_h)
 }
 
@@ -528,6 +538,7 @@ Scene :: struct {
 	sprite_data:            []u8,
 	sprite_pixmap_id:       u32,
 	sprite_width:           u16,
+	sprite_height:          u16,
 }
 
 wait_for_events :: proc(socket: os.Socket, scene: ^Scene) {
@@ -702,6 +713,7 @@ main :: proc() {
 		sprite_pixmap_id       = pixmap_id,
 		connection_information = connection_information,
 		sprite_width           = cast(u16)sprite.width,
+		sprite_height          = cast(u16)sprite.height,
 		sprite_data            = sprite_data,
 	}
 	wait_for_events(socket, &scene)
