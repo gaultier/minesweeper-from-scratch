@@ -513,22 +513,31 @@ put_image :: proc(
 
 render :: proc(socket: os.Socket, scene: ^Scene) {
 	image_id := next_id(scene.sprite_pixmap_id, scene.connection_information)
-	img_w: u16 = scene.sprite_width
-	img_h: u16 = scene.sprite_height
 	img_bytes_per_pixel := 3
 	img_depth: u8 = 24
 	put_image(
 		socket,
-		scene.window_id,
+		scene.sprite_pixmap_id,
 		scene.gc_id,
-		img_w,
-		img_h,
+		scene.sprite_width,
+		scene.sprite_height,
 		0,
 		0,
 		img_depth,
 		scene.sprite_data,
 	)
-	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 0, 0, img_w, img_h)
+	copy_area(
+		socket,
+		image_id,
+		scene.window_id,
+		scene.gc_id,
+		0,
+		0,
+		0,
+		0,
+		scene.sprite_width,
+		scene.sprite_height,
+	)
 }
 
 Scene :: struct {
