@@ -527,8 +527,11 @@ render :: proc(
 	img_depth: u8 = 24
 	img_bytes_per_pixel := 3
 	image_data := make([]u8, cast(int)img_w * cast(int)img_h * 4)
-	for &x in image_data {
-		x = 120
+	for i := 0; i < len(image_data) - 4; i += 4 {
+		image_data[i + 0] = 0 // B
+		image_data[i + 1] = 0 // G
+		image_data[i + 2] = 0xff // R
+		image_data[i + 3] = 0
 	}
 	put_image(socket, window_id, gc_id, img_w, img_h, 50, 100, img_depth, image_data)
 	// copy_area(socket, image_id, window_id, gc_id, 0, 0, 0, 0, img_w, img_h)
