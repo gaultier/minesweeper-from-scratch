@@ -596,6 +596,7 @@ Scene :: struct {
 	displayed_entities:     [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
 	// TODO: Bitfield?
 	mines:                  [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
+	remaining_mines_count:  int,
 }
 
 wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
@@ -707,14 +708,16 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 
 	if mined {
 		scene.displayed_entities[idx] = .Mine_exploded
-		uncover_all(&scene.displayed_entities, &scene.mines)
+		// Lose.
+		uncover_all_cells(&scene.displayed_entities, &scene.mines)
 	} else {
+		// Lose.
 		visited := [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool{}
-		uncover_cells(row, column, &scene.displayed_entities, &scene.mines, &visited)
+		uncover_cells_flood_fill(row, column, &scene.displayed_entities, &scene.mines, &visited)
 	}
 }
 
-uncover_all :: proc(
+uncover_all_cells :: proc(
 	displayed_entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
 	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 ) {
@@ -731,7 +734,7 @@ uncover_all :: proc(
 	}
 }
 
-uncover_cells :: proc(
+uncover_cells_flood_fill :: proc(
 	row: int,
 	column: int,
 	displayed_entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
@@ -758,22 +761,22 @@ uncover_cells :: proc(
 
 	// Up.
 	if !(row == 0) {
-		uncover_cells(row - 1, column, displayed_entities, mines, visited)
+		uncover_cells_flood_fill(row - 1, column, displayed_entities, mines, visited)
 	}
 
 	// Right
 	if !(column == (ENTITIES_COLUMN_COUNT - 1)) {
-		uncover_cells(row, column + 1, displayed_entities, mines, visited)
+		uncover_cells_flood_fill(row, column + 1, displayed_entities, mines, visited)
 	}
 
 	// Bottom.
 	if !(row == (ENTITIES_ROW_COUNT - 1)) {
-		uncover_cells(row + 1, column, displayed_entities, mines, visited)
+		uncover_cells_flood_fill(row + 1, column, displayed_entities, mines, visited)
 	}
 
 	// Left.
 	if !(column == 0) {
-		uncover_cells(row, column - 1, displayed_entities, mines, visited)
+		uncover_cells_flood_fill(row, column - 1, displayed_entities, mines, visited)
 	}
 }
 
@@ -931,6 +934,7 @@ main :: proc() {
 	}
 	for &mine in scene.mines {
 		mine = rand.uint32() < ((1 << 32) / 4)
+		scene.remaining_mines_count += mine == true
 	}
 
 	x11_put_image(
