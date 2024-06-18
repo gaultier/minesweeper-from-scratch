@@ -512,7 +512,7 @@ put_image :: proc(
 }
 
 render :: proc(socket: os.Socket, scene: ^Scene) {
-	image_id := next_id(scene.sprite_pixmap_id, scene.connection_information)
+	// image_id := next_id(scene.sprite_pixmap_id, scene.connection_information)
 	img_bytes_per_pixel := 3
 	img_depth: u8 = 24
 	put_image(
@@ -526,18 +526,7 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 		img_depth,
 		scene.sprite_data,
 	)
-	copy_area(
-		socket,
-		image_id,
-		scene.window_id,
-		scene.gc_id,
-		0,
-		0,
-		0,
-		0,
-		scene.sprite_width,
-		scene.sprite_height,
-	)
+	copy_area(socket, scene.sprite_pixmap_id, scene.window_id, scene.gc_id, 20, 20, 0, 0, 40, 40)
 }
 
 Scene :: struct {
@@ -705,14 +694,7 @@ main :: proc() {
 	)
 
 	pixmap_id := next_id(window_id, connection_information)
-	create_pixmap(
-		socket,
-		window_id,
-		pixmap_id,
-		cast(u16)sprite.width,
-		cast(u16)sprite.height,
-		cast(u8)sprite.depth,
-	)
+	create_pixmap(socket, window_id, pixmap_id, cast(u16)sprite.width, cast(u16)sprite.height, 24)
 
 	map_window(socket, window_id)
 
