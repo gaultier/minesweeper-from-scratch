@@ -720,6 +720,8 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 		// TODO: Lose.
 	} else {
 		mines_around_count := count_mines_around_cell(row, column, scene.entities_mines[:])
+		assert(mines_around_count <= 8)
+
 		scene.entities[idx] =
 		cast(Asset_kind)(cast(int)Asset_kind.Uncovered_0 + mines_around_count)
 	}
