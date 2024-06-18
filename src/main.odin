@@ -281,28 +281,22 @@ x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionIn
 
 
 	{
-		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
-		assert(err == os.ERROR_NONE)
-		assert(n_sent == size_of(Request))
-	}
-
-	{
-		n_sent, err := os.send(socket, transmute([]u8)AUTH_ENTRY_MAGIC_COOKIE, 0)
-		assert(err == os.ERROR_NONE)
-		assert(n_sent == len(AUTH_ENTRY_MAGIC_COOKIE))
-	}
-	{
 		padding := [2]u8{0, 0}
-		n_sent, err := os.send(socket, padding[:], 0)
-		assert(err == os.ERROR_NONE)
-		assert(n_sent == 2)
+		n_sent, err := linux.writev(
+			cast(linux.Fd)socket,
+			[]linux.IO_Vec {
+				{base = &request, len = size_of(Request)},
+				{base = raw_data(AUTH_ENTRY_MAGIC_COOKIE), len = len(AUTH_ENTRY_MAGIC_COOKIE)},
+				{base = raw_data(padding[:]), len = len(padding)},
+				{base = raw_data(auth_token[:]), len = len(auth_token)},
+			},
+		)
+		assert(err == .NONE)
+		assert(
+			n_sent ==
+			size_of(Request) + len(AUTH_ENTRY_MAGIC_COOKIE) + len(padding) + len(auth_token),
+		)
 	}
-	{
-		n_sent, err := os.send(socket, auth_token[:], 0)
-		assert(err == os.ERROR_NONE)
-		assert(n_sent == len(auth_token))
-	}
-
 
 	StaticResponse :: struct #packed {
 		success:       u8,
