@@ -717,6 +717,7 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 
 	if mined {
 		scene.entities[idx] = .Mine_exploded
+		// TODO: Lose.
 	} else {
 		mines_around_count := count_mines_around_cell(row, column, scene.entities_mines[:])
 		scene.entities[idx] =
