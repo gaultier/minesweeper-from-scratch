@@ -719,16 +719,35 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 		scene.entities[idx] = .Mine_exploded
 		// TODO: Lose.
 	} else {
-		mines_around_count := count_mines_around_cell(row, column, scene.entities_mines[:])
+		visited := [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool{}
+		uncover_cells(row, column, &scene.entities, &scene.entities_mines, &visited)
+	}
+}
+
+uncover_cells :: proc(
+	row: int,
+	column: int,
+	entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Asset_kind,
+	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
+	visited: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool,
+) {
+	i := row_column_to_idx(row, column)
+	fmt.println(row, column, i, entities[i], mines[i])
+	if visited[i] {return}
+
+	if mines[i] {return}
+
+	// Uncover cell.
+	if entities[i] == .Covered {
+		mines_around_count := count_mines_around_cell(row, column, mines[:])
 		assert(mines_around_count <= 8)
 
-		scene.entities[idx] =
-		cast(Asset_kind)(cast(int)Asset_kind.Uncovered_0 + mines_around_count)
+		entities[i] = cast(Asset_kind)(cast(int)Asset_kind.Uncovered_0 + mines_around_count)
 	}
 }
 
 row_column_to_idx :: #force_inline proc(row: int, column: int) -> int {
-	return cast(int)column * ENTITIES_COLUMN_COUNT + cast(int)row
+	return cast(int)row * ENTITIES_COLUMN_COUNT + cast(int)column
 }
 
 count_mines_around_cell :: proc(row: int, column: int, entities: []bool) -> int {
