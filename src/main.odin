@@ -53,7 +53,7 @@ Asset_kind :: enum {
 	// Uncovered_question_mark,
 }
 
-ASSET_COORDINATES :: [Asset_kind]Rect {
+ASSET_COORDINATES: [Asset_kind]Rect = {
 	.Covered = {x = 0, y = 38, w = 16, h = 16},
 	.Mine_exploded = {x = 32, y = 40, w = 16, h = 16},
 }
@@ -561,31 +561,31 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 	rect_mine_exploded := ASSET_COORDINATES[.Mine_exploded]
 	rect_covered := ASSET_COORDINATES[.Covered]
 
-	copy_area(
-		socket,
-		scene.sprite_pixmap_id,
-		scene.window_id,
-		scene.gc_id,
-		rect_mine_exploded.x,
-		rect_mine_exploded.y,
-		0,
-		0,
-		rect_mine_exploded.w,
-		rect_mine_exploded.h,
-	)
-	copy_area(
-		socket,
-		scene.sprite_pixmap_id,
-		scene.window_id,
-		scene.gc_id,
-		rect_covered.x,
-		rect_covered.y,
-		16,
-		0,
-		rect_covered.w,
-		rect_covered.h,
-	)
+	for entity, i in scene.entities {
+		rect := ASSET_COORDINATES[entity]
+		column: u16 = cast(u16)i % ENTITIES_COLUMN_COUNT
+		row: u16 = cast(u16)i / ENTITIES_COLUMN_COUNT
+		fmt.println(column, row)
+
+		copy_area(
+			socket,
+			scene.sprite_pixmap_id,
+			scene.window_id,
+			scene.gc_id,
+			rect.x,
+			rect.y,
+			column * ENTITIES_WIDTH,
+			row * ENTITIES_HEIGHT,
+			rect.w,
+			rect.h,
+		)
+	}
 }
+
+ENTITIES_ROW_COUNT :: 16
+ENTITIES_COLUMN_COUNT :: 16
+ENTITIES_WIDTH :: 16
+ENTITIES_HEIGHT :: 16
 
 Scene :: struct {
 	window_id:              u32,
@@ -595,6 +595,7 @@ Scene :: struct {
 	sprite_pixmap_id:       u32,
 	sprite_width:           u16,
 	sprite_height:          u16,
+	entities:               [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Asset_kind,
 }
 
 wait_for_events :: proc(socket: os.Socket, scene: ^Scene) {
@@ -746,8 +747,8 @@ main :: proc() {
 		connection_information.root_screen.id,
 		200,
 		200,
-		800,
-		600,
+		ENTITIES_COLUMN_COUNT * ENTITIES_WIDTH,
+		ENTITIES_ROW_COUNT * ENTITIES_HEIGHT,
 		connection_information.root_screen.root_visual_id,
 	)
 
@@ -770,6 +771,10 @@ main :: proc() {
 		sprite_height          = cast(u16)sprite.height,
 		sprite_data            = sprite_data,
 	}
+	for &entity in scene.entities {
+		entity = .Covered
+	}
+
 	put_image(
 		socket,
 		scene.sprite_pixmap_id,
