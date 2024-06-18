@@ -44,7 +44,6 @@ Asset_kind :: enum {
 	Uncovered_6,
 	Uncovered_7,
 	Uncovered_8,
-	Uncovered_9,
 	Covered,
 	// Flag,
 	Mine_exploded,
@@ -64,7 +63,6 @@ ASSET_COORDINATES: [Asset_kind]Rect = {
 	.Uncovered_6 = {x = 6 * 16, y = 22, w = 16, h = 16},
 	.Uncovered_7 = {x = 7 * 16, y = 22, w = 16, h = 16},
 	.Uncovered_8 = {x = 8 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_9 = {x = 9 * 16, y = 22, w = 16, h = 16},
 	.Covered = {x = 0, y = 38, w = 16, h = 16},
 	.Mine_exploded = {x = 32, y = 40, w = 16, h = 16},
 	.Mine_idle = {x = 64, y = 40, w = 16, h = 16},
@@ -323,8 +321,6 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 		assert(err == os.ERROR_NONE)
 		assert(n_recv == size_of(StaticResponse))
 		assert(static_response.success == 1)
-
-		fmt.println(static_response)
 	}
 
 
@@ -364,8 +360,6 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 		n_read, err := bytes.buffer_read(&read_buffer, mem.ptr_to_bytes(&dynamic_response))
 		assert(err == .None)
 		assert(n_read == size_of(DynamicResponse))
-
-		fmt.println(dynamic_response)
 	}
 
 
@@ -379,8 +373,6 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 		n_read, err := bytes.buffer_read(&read_buffer, mem.ptr_to_bytes(&screen))
 		assert(err == .None)
 		assert(n_read == size_of(screen))
-
-		fmt.println(screen)
 	}
 
 	return (ConnectionInformation {
@@ -577,7 +569,7 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 		rect := ASSET_COORDINATES[entity]
 		column: u16 = cast(u16)i % ENTITIES_COLUMN_COUNT
 		row: u16 = cast(u16)i / ENTITIES_COLUMN_COUNT
-		fmt.println(column, row)
+		fmt.println(column, row, entity)
 
 		copy_area(
 			socket,
