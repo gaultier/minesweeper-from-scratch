@@ -5,6 +5,7 @@ import "core:c"
 import "core:fmt"
 import "core:image/png"
 import "core:math/bits"
+import "core:math/rand"
 import "core:mem"
 import "core:os"
 import "core:path/filepath"
@@ -34,28 +35,39 @@ Asset_kind :: enum {
 	// Digit_8,
 	// Digit_9,
 	// Dash,
-	// Uncovered_0,
-	// Uncovered_1,
-	// Uncovered_2,
-	// Uncovered_3,
-	// Uncovered_4,
-	// Uncovered_5,
-	// Uncovered_6,
-	// Uncovered_7,
-	// Uncovered_8,
-	// Uncovered_9,
+	Uncovered_0,
+	Uncovered_1,
+	Uncovered_2,
+	Uncovered_3,
+	Uncovered_4,
+	Uncovered_5,
+	Uncovered_6,
+	Uncovered_7,
+	Uncovered_8,
+	Uncovered_9,
 	Covered,
 	// Flag,
 	Mine_exploded,
 	// Mine_barred,
-	// Mine_idle,
+	Mine_idle,
 	// Covered_question_mark,
 	// Uncovered_question_mark,
 }
 
 ASSET_COORDINATES: [Asset_kind]Rect = {
+	.Uncovered_0 = {x = 0 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_1 = {x = 1 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_2 = {x = 2 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_3 = {x = 3 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_4 = {x = 4 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_5 = {x = 5 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_6 = {x = 6 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_7 = {x = 7 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_8 = {x = 8 * 16, y = 22, w = 16, h = 16},
+	.Uncovered_9 = {x = 9 * 16, y = 22, w = 16, h = 16},
 	.Covered = {x = 0, y = 38, w = 16, h = 16},
 	.Mine_exploded = {x = 32, y = 40, w = 16, h = 16},
+	.Mine_idle = {x = 64, y = 40, w = 16, h = 16},
 }
 
 AuthToken :: [16]u8
@@ -772,7 +784,7 @@ main :: proc() {
 		sprite_data            = sprite_data,
 	}
 	for &entity in scene.entities {
-		entity = .Covered
+		entity = rand.choice_enum(Asset_kind)
 	}
 
 	put_image(
