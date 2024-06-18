@@ -12,6 +12,51 @@ import "core:slice"
 import "core:sys/linux"
 import "core:testing"
 
+TILE_WIDTH :: 16
+TILE_HEIGHT :: 16
+
+Rect :: struct {
+	x: u16,
+	y: u16,
+	w: u16,
+	h: u16,
+}
+
+Asset_kind :: enum {
+	// Digit_0,
+	// Digit_1,
+	// Digit_2,
+	// Digit_3,
+	// Digit_4,
+	// Digit_5,
+	// Digit_6,
+	// Digit_7,
+	// Digit_8,
+	// Digit_9,
+	// Dash,
+	// Uncovered_0,
+	// Uncovered_1,
+	// Uncovered_2,
+	// Uncovered_3,
+	// Uncovered_4,
+	// Uncovered_5,
+	// Uncovered_6,
+	// Uncovered_7,
+	// Uncovered_8,
+	// Uncovered_9,
+	// Covered,
+	// Flag,
+	Mine_exploded,
+	// Mine_barred,
+	// Mine_idle,
+	// Covered_question_mark,
+	// Uncovered_question_mark,
+}
+
+ASSET_COORDINATES :: [Asset_kind]Rect {
+	.Mine_exploded = {x = 32, y = 40, w = 16, h = 16},
+}
+
 AuthToken :: [16]u8
 
 AuthEntry :: struct {
@@ -526,7 +571,21 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 		img_depth,
 		scene.sprite_data,
 	)
-	copy_area(socket, scene.sprite_pixmap_id, scene.window_id, scene.gc_id, 20, 20, 0, 0, 40, 40)
+
+	rect_mine_exploded := ASSET_COORDINATES[.Mine_exploded]
+
+	copy_area(
+		socket,
+		scene.sprite_pixmap_id,
+		scene.window_id,
+		scene.gc_id,
+		rect_mine_exploded.x,
+		rect_mine_exploded.y,
+		5,
+		5,
+		rect_mine_exploded.w,
+		rect_mine_exploded.h,
+	)
 }
 
 Scene :: struct {
