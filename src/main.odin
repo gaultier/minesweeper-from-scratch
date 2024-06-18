@@ -930,7 +930,8 @@ x11_create_pixmap :: proc(
 }
 
 main :: proc() {
-	sprite, err := png.load_from_file("sprite.png", {})
+	png_data := #load("sprite.png")
+	sprite, err := png.load_from_bytes(png_data, {})
 	assert(err == nil)
 	sprite_data := make([]u8, sprite.height * sprite.width * 4)
 
