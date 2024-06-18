@@ -23,7 +23,7 @@ Rect :: struct {
 	h: u16,
 }
 
-Asset_kind :: enum {
+Entity_kind :: enum {
 	Covered,
 	// Digit_0,
 	// Digit_1,
@@ -53,7 +53,7 @@ Asset_kind :: enum {
 	// Uncovered_question_mark,
 }
 
-ASSET_COORDINATES: [Asset_kind]Rect = {
+ASSET_COORDINATES: [Entity_kind]Rect = {
 	.Uncovered_0 = {x = 0 * 16, y = 22, w = 16, h = 16},
 	.Uncovered_1 = {x = 1 * 16, y = 22, w = 16, h = 16},
 	.Uncovered_2 = {x = 2 * 16, y = 22, w = 16, h = 16},
@@ -603,7 +603,7 @@ Scene :: struct {
 	sprite_pixmap_id:       u32,
 	sprite_width:           u16,
 	sprite_height:          u16,
-	entities:               [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Asset_kind,
+	entities:               [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
 	// TODO: Bitfield?
 	entities_mines:         [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 }
@@ -727,7 +727,7 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 uncover_cells :: proc(
 	row: int,
 	column: int,
-	entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Asset_kind,
+	entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
 	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 	visited: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool,
 ) {
@@ -745,7 +745,7 @@ uncover_cells :: proc(
 	mines_around_count := count_mines_around_cell(row, column, mines[:])
 	assert(mines_around_count <= 8)
 
-	entities[i] = cast(Asset_kind)(cast(int)Asset_kind.Uncovered_0 + mines_around_count)
+	entities[i] = cast(Entity_kind)(cast(int)Entity_kind.Uncovered_0 + mines_around_count)
 
 	// Uncover neighbors.
 
