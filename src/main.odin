@@ -718,8 +718,52 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 	if mined {
 		scene.entities[idx] = .Mine_exploded
 	} else {
-		scene.entities[idx] = .Uncovered_0
+		mines_around_count := count_mines_around_cell(row, column, scene.entities_mines[:])
+		scene.entities[idx] =
+		cast(Asset_kind)(cast(int)Asset_kind.Uncovered_0 + mines_around_count)
 	}
+}
+
+row_column_to_idx :: #force_inline proc(row: int, column: int) -> int {
+	return cast(int)column * ENTITIES_COLUMN_COUNT + cast(int)row
+}
+
+count_mines_around_cell :: proc(row: int, column: int, entities: []bool) -> int {
+	// TODO: Pad the border to elide all bound checks?
+
+	up_left := row == 0 || column == 0 ? false : entities[row_column_to_idx(row - 1, column - 1)]
+	up := row == 0 ? false : entities[row_column_to_idx(row - 1, column)]
+	up_right :=
+		row == 0 || column == (ENTITIES_COLUMN_COUNT - 1) \
+		? false \
+		: entities[row_column_to_idx(row - 1, column + 1)]
+	right :=
+		column == (ENTITIES_COLUMN_COUNT - 1) \
+		? false \
+		: entities[row_column_to_idx(row, column + 1)]
+	bottom_right :=
+		row == (ENTITIES_ROW_COUNT - 1) || column == (ENTITIES_COLUMN_COUNT - 1) \
+		? false \
+		: entities[row_column_to_idx(row + 1, column + 1)]
+	bottom :=
+		row == (ENTITIES_ROW_COUNT - 1) ? false : entities[row_column_to_idx(row + 1, column)]
+	bottom_left :=
+		row == 0 || column == (ENTITIES_COLUMN_COUNT - 1) \
+		? false \
+		: entities[row_column_to_idx(row + 1, column - 1)]
+	left := row == 0 ? false : entities[row_column_to_idx(row, column - 1)]
+
+
+	return(
+		cast(int)up_left +
+		cast(int)up +
+		cast(int)up_right +
+		cast(int)right +
+		cast(int)bottom_right +
+		cast(int)bottom +
+		cast(int)bottom_left +
+		cast(int)left \
+	)
 }
 
 locate_entity_by_coordinate :: proc(win_x: u16, win_y: u16) -> (idx: int, row: int, column: int) {
@@ -853,4 +897,21 @@ test_round_up_4 :: proc(_: ^testing.T) {
 	assert(round_up_4(6) == 8)
 	assert(round_up_4(7) == 8)
 	assert(round_up_4(8) == 8)
+}
+
+@(test)
+test_count_mines_around_cell :: proc(_: ^testing.T) {
+	{
+		mines := [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool{}
+		mines[row_column_to_idx(0, 0)] = true
+		mines[row_column_to_idx(0, 1)] = true
+		mines[row_column_to_idx(0, 2)] = true
+		mines[row_column_to_idx(1, 2)] = true
+		mines[row_column_to_idx(2, 2)] = true
+		mines[row_column_to_idx(2, 1)] = true
+		mines[row_column_to_idx(2, 0)] = true
+		mines[row_column_to_idx(1, 0)] = true
+
+		assert(count_mines_around_cell(1, 1, mines[:]) == 8)
+	}
 }
