@@ -200,8 +200,10 @@ read_x11_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 	return entry, true
 }
 
-// TODO: Use a local arena as allocator.
-load_x11_auth_token :: proc() -> (token: AuthToken, ok: bool) {
+load_x11_auth_token :: proc(allocator := context.allocator) -> (token: AuthToken, ok: bool) {
+	context.allocator = allocator
+	defer free_all(allocator)
+
 	filename_env := os.get_env("XAUTHORITY")
 
 	filename :=
@@ -946,7 +948,7 @@ main :: proc() {
 		sprite_data[i * 4 + 3] = 0 // pad
 	}
 
-	auth_token, _ := load_x11_auth_token()
+	auth_token, _ := load_x11_auth_token(context.temp_allocator)
 
 	socket := connect_x11_socket()
 	connection_information := x11_handshake(socket, &auth_token)
