@@ -2,7 +2,6 @@ package main
 
 import "core:bytes"
 import "core:c"
-import "core:fmt"
 import "core:image/png"
 import "core:math/bits"
 import "core:math/rand"
@@ -217,16 +216,12 @@ load_x11_auth_token :: proc() -> (token: AuthToken, ok: bool) {
 
 
 	for {
-		auth_entry, ok := read_x11_auth_entry(&buffer)
-		if !ok {
-			break
-		}
+		auth_entry := read_x11_auth_entry(&buffer) or_break
 
 		if auth_entry.family == AUTH_ENTRY_FAMILY_LOCAL &&
 		   slice.equal(auth_entry.auth_name, transmute([]u8)AUTH_ENTRY_MAGIC_COOKIE) &&
 		   len(auth_entry.auth_data) == size_of(AuthToken) {
 
-			token := AuthToken{}
 			mem.copy_non_overlapping(
 				raw_data(&token),
 				raw_data(auth_entry.auth_data),
@@ -549,7 +544,6 @@ x11_put_image :: proc(
 		depth          = depth,
 	}
 	{
-		padding := [4]u8{0, 0, 0, 0}
 		padding_len := data_length_padded - cast(u32)len(data)
 
 		n_sent, err := linux.writev(
@@ -566,9 +560,6 @@ x11_put_image :: proc(
 }
 
 render :: proc(socket: os.Socket, scene: ^Scene) {
-	rect_mine_exploded := ASSET_COORDINATES[.Mine_exploded]
-	rect_covered := ASSET_COORDINATES[.Covered]
-
 	for entity, i in scene.displayed_entities {
 		rect := ASSET_COORDINATES[entity]
 		column: u16 = cast(u16)i % ENTITIES_COLUMN_COUNT
@@ -899,7 +890,7 @@ main :: proc() {
 		sprite_data[i * 4 + 3] = 0 // pad
 	}
 
-	auth_token, ok := load_x11_auth_token()
+	auth_token, _ := load_x11_auth_token()
 
 	socket := connect_x11_socket()
 	connection_information := x11_handshake(socket, &auth_token)
