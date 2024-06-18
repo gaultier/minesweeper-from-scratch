@@ -735,14 +735,38 @@ uncover_cells :: proc(
 	fmt.println(row, column, i, entities[i], mines[i])
 	if visited[i] {return}
 
+	visited[i] = true
+
 	if mines[i] {return}
 
-	// Uncover cell.
-	if entities[i] == .Covered {
-		mines_around_count := count_mines_around_cell(row, column, mines[:])
-		assert(mines_around_count <= 8)
+	if entities[i] != .Covered {return}
 
-		entities[i] = cast(Asset_kind)(cast(int)Asset_kind.Uncovered_0 + mines_around_count)
+	// Uncover cell.
+	mines_around_count := count_mines_around_cell(row, column, mines[:])
+	assert(mines_around_count <= 8)
+
+	entities[i] = cast(Asset_kind)(cast(int)Asset_kind.Uncovered_0 + mines_around_count)
+
+	// Uncover neighbors.
+
+	// Up.
+	if !(row == 0) {
+		uncover_cells(row - 1, column, entities, mines, visited)
+	}
+
+	// Right
+	if !(column == (ENTITIES_COLUMN_COUNT - 1)) {
+		uncover_cells(row, column + 1, entities, mines, visited)
+	}
+
+	// Bottom.
+	if !(row == (ENTITIES_ROW_COUNT - 1)) {
+		uncover_cells(row + 1, column, entities, mines, visited)
+	}
+
+	// Left.
+	if !(column == 0) {
+		uncover_cells(row, column - 1, entities, mines, visited)
 	}
 }
 
@@ -770,10 +794,10 @@ count_mines_around_cell :: proc(row: int, column: int, entities: []bool) -> int 
 	bottom :=
 		row == (ENTITIES_ROW_COUNT - 1) ? false : entities[row_column_to_idx(row + 1, column)]
 	bottom_left :=
-		row == 0 || column == (ENTITIES_COLUMN_COUNT - 1) \
+		column == 0 || row == (ENTITIES_COLUMN_COUNT - 1) \
 		? false \
 		: entities[row_column_to_idx(row + 1, column - 1)]
-	left := row == 0 ? false : entities[row_column_to_idx(row, column - 1)]
+	left := column == 0 ? false : entities[row_column_to_idx(row, column - 1)]
 
 
 	return(
