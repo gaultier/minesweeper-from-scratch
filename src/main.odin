@@ -730,6 +730,7 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 			&scene.remaining_uncovered_cells_count,
 		)
 
+		// Win.
 		if scene.remaining_uncovered_cells_count == 0 {
 			uncover_all_cells(&scene.displayed_entities, &scene.mines, .Mine_idle)
 		}
