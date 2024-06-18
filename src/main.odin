@@ -375,13 +375,11 @@ x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionIn
 		assert(n_read == size_of(screen))
 	}
 
-	return(
-		ConnectionInformation {
-			resource_id_base = dynamic_response.resource_id_base,
-			resource_id_mask = dynamic_response.resource_id_mask,
-			root_screen = screen,
-		} \
-	)
+	return (ConnectionInformation {
+				resource_id_base = dynamic_response.resource_id_base,
+				resource_id_mask = dynamic_response.resource_id_mask,
+				root_screen = screen,
+			})
 }
 
 next_x11_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
@@ -713,20 +711,24 @@ x11_copy_area :: proc(
 }
 
 on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
-	i := locate_entity_by_coordinate(x, y)
+	idx, row, column := locate_entity_by_coordinate(x, y)
 
-	if scene.entities_mines[i] {
-		scene.entities[i] = .Mine_exploded
+	mined := scene.entities_mines[idx]
+
+	if mined {
+		scene.entities[idx] = .Mine_exploded
 	} else {
-		scene.entities[i] = .Uncovered_0
+		scene.entities[idx] = .Uncovered_0
 	}
 }
 
-locate_entity_by_coordinate :: proc(x: u16, y: u16) -> int {
-	i := x / ENTITIES_WIDTH
-	j := y / ENTITIES_HEIGHT
+locate_entity_by_coordinate :: proc(win_x: u16, win_y: u16) -> (idx: int, row: int, column: int) {
+	column = cast(int)win_x / ENTITIES_WIDTH
+	row = cast(int)win_y / ENTITIES_HEIGHT
 
-	return cast(int)(j * ENTITIES_COLUMN_COUNT + i)
+	idx = cast(int)(row * ENTITIES_COLUMN_COUNT + column)
+
+	return idx, row, column
 }
 
 x11_create_pixmap :: proc(
