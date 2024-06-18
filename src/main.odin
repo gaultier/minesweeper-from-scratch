@@ -654,13 +654,12 @@ wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 
 		switch generic_event.code {
 		case EVENT_EXPOSURE:
-			fmt.println("exposed")
-
 			render(socket, scene)
 
 		case EVENT_BUTTON_RELEASE:
 			event := transmute(ButtonReleaseEvent)generic_event
-			fmt.println(event)
+			on_cell_clicked(event.event_x, event.event_y, scene)
+			render(socket, scene)
 		}
 	}
 }
@@ -711,6 +710,23 @@ x11_copy_area :: proc(
 		assert(err == os.ERROR_NONE)
 		assert(n_sent == size_of(Request))
 	}
+}
+
+on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
+	i := locate_entity_by_coordinate(x, y)
+
+	if scene.entities_mines[i] {
+		scene.entities[i] = .Mine_exploded
+	} else {
+		scene.entities[i] = .Uncovered_0
+	}
+}
+
+locate_entity_by_coordinate :: proc(x: u16, y: u16) -> int {
+	i := x / ENTITIES_WIDTH
+	j := y / ENTITIES_HEIGHT
+
+	return cast(int)(j * ENTITIES_COLUMN_COUNT + i)
 }
 
 x11_create_pixmap :: proc(
