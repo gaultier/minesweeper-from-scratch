@@ -2,7 +2,6 @@ package main
 
 import "core:bytes"
 import "core:c"
-import "core:fmt"
 import "core:image/png"
 import "core:math/bits"
 import "core:math/rand"
@@ -561,7 +560,14 @@ x11_put_image :: proc(
 }
 
 render :: proc(socket: os.Socket, scene: ^Scene) {
-	fmt.println(scene.remaining_uncovered_cells_count)
+	uncovered_count := 0
+	for entity in scene.displayed_entities {
+		uncovered_count += (entity == .Covered)
+	}
+	mine_count := 0
+	for mine in scene.mines {
+		mine_count += cast(int)mine
+	}
 
 	for entity, i in scene.displayed_entities {
 		rect := ASSET_COORDINATES[entity]
@@ -712,7 +718,7 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 	if mined {
 		scene.displayed_entities[idx] = .Mine_exploded
 		// Lose.
-		uncover_all_cells(&scene.displayed_entities, &scene.mines)
+		uncover_all_cells(&scene.displayed_entities, &scene.mines, .Mine_exploded)
 	} else {
 		visited := [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool{}
 		uncover_cells_flood_fill(
@@ -725,7 +731,7 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 		)
 
 		if scene.remaining_uncovered_cells_count == 0 {
-			uncover_all_cells(&scene.displayed_entities, &scene.mines)
+			uncover_all_cells(&scene.displayed_entities, &scene.mines, .Mine_idle)
 		}
 	}
 }
@@ -733,10 +739,11 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 uncover_all_cells :: proc(
 	displayed_entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
 	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
+	shown_mine: Entity_kind,
 ) {
 	for &entity, i in displayed_entities {
 		if mines[i] {
-			entity = .Mine_exploded
+			entity = shown_mine
 		} else {
 			row, column := idx_to_row_column(i)
 			mines_around_count := count_mines_around_cell(row, column, mines[:])
