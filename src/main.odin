@@ -110,7 +110,7 @@ round_up_4 :: #force_inline proc(x: u32) -> u32 {
 	return transmute(u32)((transmute(i32)x + 3) & mask)
 }
 
-read_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
+read_x11_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 	entry := AuthEntry{}
 
 	{
@@ -202,7 +202,7 @@ read_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 }
 
 // TODO: Use a local arena as allocator.
-load_auth_token :: proc() -> (token: AuthToken, ok: bool) {
+load_x11_auth_token :: proc() -> (token: AuthToken, ok: bool) {
 	filename_env := os.get_env("XAUTHORITY")
 
 	filename :=
@@ -217,7 +217,7 @@ load_auth_token :: proc() -> (token: AuthToken, ok: bool) {
 
 
 	for {
-		auth_entry, ok := read_auth_entry(&buffer)
+		auth_entry, ok := read_x11_auth_entry(&buffer)
 		if !ok {
 			break
 		}
@@ -239,7 +239,7 @@ load_auth_token :: proc() -> (token: AuthToken, ok: bool) {
 	return {}, false
 }
 
-connect :: proc() -> os.Socket {
+connect_x11_socket :: proc() -> os.Socket {
 	SockaddrUn :: struct #packed {
 		sa_family: os.ADDRESS_FAMILY,
 		sa_data:   [108]c.char,
@@ -263,7 +263,7 @@ connect :: proc() -> os.Socket {
 }
 
 
-handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInformation {
+x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInformation {
 
 	Request :: struct #packed {
 		endianness:             u8,
@@ -382,11 +382,11 @@ handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInform
 			})
 }
 
-next_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
+next_x11_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
 	return 1 + ((info.resource_id_mask & (current_id)) | info.resource_id_base)
 }
 
-create_graphical_context :: proc(socket: os.Socket, gc_id: u32, root_id: u32) {
+x11_create_graphical_context :: proc(socket: os.Socket, gc_id: u32, root_id: u32) {
 	opcode: u8 : 55
 	FLAG_GC_BG: u32 : 8
 	BITMASK: u32 : FLAG_GC_BG
@@ -417,7 +417,7 @@ create_graphical_context :: proc(socket: os.Socket, gc_id: u32, root_id: u32) {
 	}
 }
 
-create_window :: proc(
+x11_create_window :: proc(
 	socket: os.Socket,
 	window_id: u32,
 	parent_id: u32,
@@ -480,7 +480,7 @@ create_window :: proc(
 	}
 }
 
-map_window :: proc(socket: os.Socket, window_id: u32) {
+x11_map_window :: proc(socket: os.Socket, window_id: u32) {
 	opcode: u8 : 8
 
 	Request :: struct #packed {
@@ -502,7 +502,7 @@ map_window :: proc(socket: os.Socket, window_id: u32) {
 
 }
 
-put_image :: proc(
+x11_put_image :: proc(
 	socket: os.Socket,
 	drawable_id: u32,
 	gc_id: u32,
@@ -571,7 +571,7 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 		row: u16 = cast(u16)i / ENTITIES_COLUMN_COUNT
 		fmt.println(column, row, entity)
 
-		copy_area(
+		x11_copy_area(
 			socket,
 			scene.sprite_pixmap_id,
 			scene.window_id,
@@ -602,7 +602,7 @@ Scene :: struct {
 	entities:               [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Asset_kind,
 }
 
-wait_for_events :: proc(socket: os.Socket, scene: ^Scene) {
+wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 	Event :: struct #packed {
 		code:       u8,
 		pad1:       u8,
@@ -637,7 +637,7 @@ wait_for_events :: proc(socket: os.Socket, scene: ^Scene) {
 	}
 }
 
-copy_area :: proc(
+x11_copy_area :: proc(
 	socket: os.Socket,
 	src_id: u32,
 	dst_id: u32,
@@ -685,7 +685,7 @@ copy_area :: proc(
 	}
 }
 
-create_pixmap :: proc(
+x11_create_pixmap :: proc(
 	socket: os.Socket,
 	window_id: u32,
 	pixmap_id: u32,
@@ -735,17 +735,17 @@ main :: proc() {
 	}
 
 
-	auth_token, ok := load_auth_token()
+	auth_token, ok := load_x11_auth_token()
 
-	socket := connect()
-	connection_information := handshake(socket, &auth_token)
+	socket := connect_x11_socket()
+	connection_information := x11_handshake(socket, &auth_token)
 	fmt.println(connection_information)
 
-	gc_id := next_id(0, connection_information)
-	create_graphical_context(socket, gc_id, connection_information.root_screen.id)
+	gc_id := next_x11_id(0, connection_information)
+	x11_create_graphical_context(socket, gc_id, connection_information.root_screen.id)
 
-	window_id := next_id(gc_id, connection_information)
-	create_window(
+	window_id := next_x11_id(gc_id, connection_information)
+	x11_create_window(
 		socket,
 		window_id,
 		connection_information.root_screen.id,
@@ -757,8 +757,8 @@ main :: proc() {
 	)
 
 	img_depth: u8 = 24
-	pixmap_id := next_id(window_id, connection_information)
-	create_pixmap(
+	pixmap_id := next_x11_id(window_id, connection_information)
+	x11_create_pixmap(
 		socket,
 		window_id,
 		pixmap_id,
@@ -779,7 +779,7 @@ main :: proc() {
 		entity = rand.choice_enum(Asset_kind)
 	}
 
-	put_image(
+	x11_put_image(
 		socket,
 		scene.sprite_pixmap_id,
 		scene.gc_id,
@@ -791,9 +791,9 @@ main :: proc() {
 		scene.sprite_data,
 	)
 
-	map_window(socket, window_id)
+	x11_map_window(socket, window_id)
 
-	wait_for_events(socket, &scene)
+	wait_for_x11_events(socket, &scene)
 }
 
 
