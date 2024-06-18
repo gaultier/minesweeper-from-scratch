@@ -375,11 +375,13 @@ x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionIn
 		assert(n_read == size_of(screen))
 	}
 
-	return (ConnectionInformation {
-				resource_id_base = dynamic_response.resource_id_base,
-				resource_id_mask = dynamic_response.resource_id_mask,
-				root_screen = screen,
-			})
+	return(
+		ConnectionInformation {
+			resource_id_base = dynamic_response.resource_id_base,
+			resource_id_mask = dynamic_response.resource_id_mask,
+			root_screen = screen,
+		} \
+	)
 }
 
 next_x11_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
@@ -431,6 +433,10 @@ x11_create_window :: proc(
 	FLAG_WIN_EVENT: u32 : 0x800
 	FLAG_COUNT: u16 : 2
 	EVENT_FLAG_EXPOSURE: u32 = 0x80_00
+	EVENT_FLAG_KEY_PRESS: u32 = 0x1
+	EVENT_FLAG_KEY_RELEASE: u32 = 0x2
+	EVENT_FLAG_BUTTON_PRESS: u32 = 0x4
+	EVENT_FLAG_BUTTON_RELEASE: u32 = 0x8
 	flags: u32 : FLAG_WIN_BG_PIXEL | FLAG_WIN_EVENT
 	depth: u8 : 24
 	border_width: u16 : 0
@@ -470,7 +476,7 @@ x11_create_window :: proc(
 		root_visual_id = root_visual_id,
 		bitmask        = flags,
 		value1         = BACKGROUND_PIXEL_COLOR,
-		value2         = EVENT_FLAG_EXPOSURE,
+		value2         = EVENT_FLAG_EXPOSURE | EVENT_FLAG_BUTTON_RELEASE | EVENT_FLAG_BUTTON_PRESS | EVENT_FLAG_KEY_PRESS | EVENT_FLAG_KEY_RELEASE,
 	}
 
 	{
@@ -569,7 +575,7 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 		rect := ASSET_COORDINATES[entity]
 		column: u16 = cast(u16)i % ENTITIES_COLUMN_COUNT
 		row: u16 = cast(u16)i / ENTITIES_COLUMN_COUNT
-		fmt.println(column, row, entity)
+		// fmt.println(column, row, entity)
 
 		x11_copy_area(
 			socket,
@@ -605,36 +611,56 @@ Scene :: struct {
 }
 
 wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
-	Event :: struct #packed {
-		code:       u8,
-		pad1:       u8,
-		seq_number: u16,
-		window_id:  u32,
-		x:          u16,
-		y:          u16,
-		width:      u16,
-		height:     u16,
-		count:      u16,
-		pad2:       [14]u8,
+	GenericEvent :: struct #packed {
+		code: u8,
+		pad:  [31]u8,
 	}
+	assert(size_of(GenericEvent) == 32)
+
+
+	ButtonReleaseEvent :: struct #packed {
+		code:        u8,
+		detail:      u8,
+		seq_number:  u16,
+		timestamp:   u32,
+		root:        u32,
+		event:       u32,
+		child:       u32,
+		root_x:      u16,
+		root_y:      u16,
+		event_x:     u16,
+		event_y:     u16,
+		state:       u16,
+		same_screen: bool,
+		pad1:        u8,
+	}
+	assert(size_of(ButtonReleaseEvent) == 32)
 
 	EVENT_EXPOSURE: u8 : 0xc
+	EVENT_KEY_PRESS: u8 : 0x2
+	EVENT_KEY_RELEASE: u8 : 0x3
+	EVENT_BUTTON_PRESS: u8 : 0x4
+	EVENT_BUTTON_RELEASE: u8 : 0x5
 
 	for {
-		event := Event{}
-		n_recv, err := os.recv(socket, mem.ptr_to_bytes(&event), 0)
+		generic_event := GenericEvent{}
+		n_recv, err := os.recv(socket, mem.ptr_to_bytes(&generic_event), 0)
 		if err == os.EPIPE || n_recv == 0 {
 			os.exit(0) // The end.
 		}
 
 		assert(err == os.ERROR_NONE)
-		assert(n_recv == size_of(Event))
+		assert(n_recv == size_of(GenericEvent))
 
-		switch event.code {
+		switch generic_event.code {
 		case EVENT_EXPOSURE:
 			fmt.println("exposed")
 
 			render(socket, scene)
+
+		case EVENT_BUTTON_RELEASE:
+			event := transmute(ButtonReleaseEvent)generic_event
+			fmt.println(event)
 		}
 	}
 }
