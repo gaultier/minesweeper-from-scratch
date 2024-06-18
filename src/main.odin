@@ -725,8 +725,9 @@ x11_create_pixmap :: proc(
 main :: proc() {
 	sprite, err := png.load_from_file("sprite.png", {})
 	assert(err == nil)
-	fmt.println(len(sprite.pixels.buf), sprite.height, sprite.width, sprite.channels, sprite.depth)
 	sprite_data := make([]u8, sprite.height * sprite.width * 4)
+
+	// Convert the image format from the sprite (RGB) into the X11 image format (BGRX).
 	for i := 0; i < sprite.height * sprite.width - 3; i += 1 {
 		sprite_data[i * 4 + 0] = sprite.pixels.buf[i * 3 + 2] // R -> B
 		sprite_data[i * 4 + 1] = sprite.pixels.buf[i * 3 + 1] // G -> G
