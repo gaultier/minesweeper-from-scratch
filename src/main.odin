@@ -44,7 +44,7 @@ Asset_kind :: enum {
 	// Uncovered_7,
 	// Uncovered_8,
 	// Uncovered_9,
-	// Covered,
+	Covered,
 	// Flag,
 	Mine_exploded,
 	// Mine_barred,
@@ -54,6 +54,7 @@ Asset_kind :: enum {
 }
 
 ASSET_COORDINATES :: [Asset_kind]Rect {
+	.Covered = {x = 0, y = 38, w = 16, h = 16},
 	.Mine_exploded = {x = 32, y = 40, w = 16, h = 16},
 }
 
@@ -557,22 +558,8 @@ put_image :: proc(
 }
 
 render :: proc(socket: os.Socket, scene: ^Scene) {
-	// image_id := next_id(scene.sprite_pixmap_id, scene.connection_information)
-	img_bytes_per_pixel := 3
-	img_depth: u8 = 24
-	put_image(
-		socket,
-		scene.sprite_pixmap_id,
-		scene.gc_id,
-		scene.sprite_width,
-		scene.sprite_height,
-		0,
-		0,
-		img_depth,
-		scene.sprite_data,
-	)
-
 	rect_mine_exploded := ASSET_COORDINATES[.Mine_exploded]
+	rect_covered := ASSET_COORDINATES[.Covered]
 
 	copy_area(
 		socket,
@@ -581,10 +568,22 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 		scene.gc_id,
 		rect_mine_exploded.x,
 		rect_mine_exploded.y,
-		5,
-		5,
+		0,
+		0,
 		rect_mine_exploded.w,
 		rect_mine_exploded.h,
+	)
+	copy_area(
+		socket,
+		scene.sprite_pixmap_id,
+		scene.window_id,
+		scene.gc_id,
+		rect_covered.x,
+		rect_covered.y,
+		16,
+		0,
+		rect_covered.w,
+		rect_covered.h,
 	)
 }
 
@@ -752,11 +751,16 @@ main :: proc() {
 		connection_information.root_screen.root_visual_id,
 	)
 
+	img_depth: u8 = 24
 	pixmap_id := next_id(window_id, connection_information)
-	create_pixmap(socket, window_id, pixmap_id, cast(u16)sprite.width, cast(u16)sprite.height, 24)
-
-	map_window(socket, window_id)
-
+	create_pixmap(
+		socket,
+		window_id,
+		pixmap_id,
+		cast(u16)sprite.width,
+		cast(u16)sprite.height,
+		img_depth,
+	)
 	scene := Scene {
 		window_id              = window_id,
 		gc_id                  = gc_id,
@@ -766,6 +770,20 @@ main :: proc() {
 		sprite_height          = cast(u16)sprite.height,
 		sprite_data            = sprite_data,
 	}
+	put_image(
+		socket,
+		scene.sprite_pixmap_id,
+		scene.gc_id,
+		scene.sprite_width,
+		scene.sprite_height,
+		0,
+		0,
+		img_depth,
+		scene.sprite_data,
+	)
+
+	map_window(socket, window_id)
+
 	wait_for_events(socket, &scene)
 }
 
