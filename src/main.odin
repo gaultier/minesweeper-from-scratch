@@ -573,7 +573,6 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 		rect := ASSET_COORDINATES[entity]
 		column: u16 = cast(u16)i % ENTITIES_COLUMN_COUNT
 		row: u16 = cast(u16)i / ENTITIES_COLUMN_COUNT
-		// fmt.println(column, row, entity)
 
 		x11_copy_area(
 			socket,
@@ -717,10 +716,27 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 
 	if mined {
 		scene.entities[idx] = .Mine_exploded
-		// TODO: Lose.
+		uncover_all(&scene.entities, &scene.entities_mines)
 	} else {
 		visited := [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool{}
 		uncover_cells(row, column, &scene.entities, &scene.entities_mines, &visited)
+	}
+}
+
+uncover_all :: proc(
+	entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
+	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
+) {
+	for &entity, i in entities {
+		if mines[i] {
+			entity = .Mine_exploded
+		} else {
+			row, column := idx_to_row_column(i)
+			mines_around_count := count_mines_around_cell(row, column, mines[:])
+			assert(mines_around_count <= 8)
+
+			entity = cast(Entity_kind)(cast(int)Entity_kind.Uncovered_0 + mines_around_count)
+		}
 	}
 }
 
@@ -732,7 +748,6 @@ uncover_cells :: proc(
 	visited: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool,
 ) {
 	i := row_column_to_idx(row, column)
-	fmt.println(row, column, i, entities[i], mines[i])
 	if visited[i] {return}
 
 	visited[i] = true
@@ -768,6 +783,13 @@ uncover_cells :: proc(
 	if !(column == 0) {
 		uncover_cells(row, column - 1, entities, mines, visited)
 	}
+}
+
+idx_to_row_column :: #force_inline proc(i: int) -> (int, int) {
+	column := i % ENTITIES_COLUMN_COUNT
+	row := i / ENTITIES_ROW_COUNT
+
+	return row, column
 }
 
 row_column_to_idx :: #force_inline proc(row: int, column: int) -> int {
@@ -816,7 +838,7 @@ locate_entity_by_coordinate :: proc(win_x: u16, win_y: u16) -> (idx: int, row: i
 	column = cast(int)win_x / ENTITIES_WIDTH
 	row = cast(int)win_y / ENTITIES_HEIGHT
 
-	idx = cast(int)(row * ENTITIES_COLUMN_COUNT + column)
+	idx = row_column_to_idx(row, column)
 
 	return idx, row, column
 }
