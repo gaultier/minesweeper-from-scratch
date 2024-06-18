@@ -2,6 +2,7 @@ package main
 
 import "core:bytes"
 import "core:c"
+import "core:fmt"
 import "core:image/png"
 import "core:math/bits"
 import "core:math/rand"
@@ -560,6 +561,8 @@ x11_put_image :: proc(
 }
 
 render :: proc(socket: os.Socket, scene: ^Scene) {
+	fmt.println(scene.remaining_uncovered_cells_count)
+
 	for entity, i in scene.displayed_entities {
 		rect := ASSET_COORDINATES[entity]
 		column: u16 = cast(u16)i % ENTITIES_COLUMN_COUNT
@@ -586,17 +589,17 @@ ENTITIES_WIDTH :: 16
 ENTITIES_HEIGHT :: 16
 
 Scene :: struct {
-	window_id:              u32,
-	gc_id:                  u32,
-	connection_information: ConnectionInformation,
-	sprite_data:            []u8,
-	sprite_pixmap_id:       u32,
-	sprite_width:           u16,
-	sprite_height:          u16,
-	displayed_entities:     [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
+	window_id:                       u32,
+	gc_id:                           u32,
+	connection_information:          ConnectionInformation,
+	sprite_data:                     []u8,
+	sprite_pixmap_id:                u32,
+	sprite_width:                    u16,
+	sprite_height:                   u16,
+	displayed_entities:              [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
 	// TODO: Bitfield?
-	mines:                  [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
-	remaining_mines_count:  int,
+	mines:                           [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
+	remaining_uncovered_cells_count: int,
 }
 
 wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
@@ -711,9 +714,19 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 		// Lose.
 		uncover_all_cells(&scene.displayed_entities, &scene.mines)
 	} else {
-		// Lose.
 		visited := [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool{}
-		uncover_cells_flood_fill(row, column, &scene.displayed_entities, &scene.mines, &visited)
+		uncover_cells_flood_fill(
+			row,
+			column,
+			&scene.displayed_entities,
+			&scene.mines,
+			&visited,
+			&scene.remaining_uncovered_cells_count,
+		)
+
+		if scene.remaining_uncovered_cells_count == 0 {
+			uncover_all_cells(&scene.displayed_entities, &scene.mines)
+		}
 	}
 }
 
@@ -740,17 +753,21 @@ uncover_cells_flood_fill :: proc(
 	displayed_entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
 	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 	visited: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool,
+	remaining_uncovered_cells_count: ^int,
 ) {
 	i := row_column_to_idx(row, column)
 	if visited[i] {return}
 
 	visited[i] = true
 
+	// Do not uncover covered mines.
 	if mines[i] {return}
 
 	if displayed_entities[i] != .Covered {return}
 
 	// Uncover cell.
+
+	remaining_uncovered_cells_count^ = clamp(remaining_uncovered_cells_count^ - 1, 0, 1 << 32)
 	mines_around_count := count_mines_around_cell(row, column, mines[:])
 	assert(mines_around_count <= 8)
 
@@ -761,22 +778,50 @@ uncover_cells_flood_fill :: proc(
 
 	// Up.
 	if !(row == 0) {
-		uncover_cells_flood_fill(row - 1, column, displayed_entities, mines, visited)
+		uncover_cells_flood_fill(
+			row - 1,
+			column,
+			displayed_entities,
+			mines,
+			visited,
+			remaining_uncovered_cells_count,
+		)
 	}
 
 	// Right
 	if !(column == (ENTITIES_COLUMN_COUNT - 1)) {
-		uncover_cells_flood_fill(row, column + 1, displayed_entities, mines, visited)
+		uncover_cells_flood_fill(
+			row,
+			column + 1,
+			displayed_entities,
+			mines,
+			visited,
+			remaining_uncovered_cells_count,
+		)
 	}
 
 	// Bottom.
 	if !(row == (ENTITIES_ROW_COUNT - 1)) {
-		uncover_cells_flood_fill(row + 1, column, displayed_entities, mines, visited)
+		uncover_cells_flood_fill(
+			row + 1,
+			column,
+			displayed_entities,
+			mines,
+			visited,
+			remaining_uncovered_cells_count,
+		)
 	}
 
 	// Left.
 	if !(column == 0) {
-		uncover_cells_flood_fill(row, column - 1, displayed_entities, mines, visited)
+		uncover_cells_flood_fill(
+			row,
+			column - 1,
+			displayed_entities,
+			mines,
+			visited,
+			remaining_uncovered_cells_count,
+		)
 	}
 }
 
@@ -924,17 +969,18 @@ main :: proc() {
 		img_depth,
 	)
 	scene := Scene {
-		window_id              = window_id,
-		gc_id                  = gc_id,
-		sprite_pixmap_id       = pixmap_id,
-		connection_information = connection_information,
-		sprite_width           = cast(u16)sprite.width,
-		sprite_height          = cast(u16)sprite.height,
-		sprite_data            = sprite_data,
+		window_id                       = window_id,
+		gc_id                           = gc_id,
+		sprite_pixmap_id                = pixmap_id,
+		connection_information          = connection_information,
+		sprite_width                    = cast(u16)sprite.width,
+		sprite_height                   = cast(u16)sprite.height,
+		sprite_data                     = sprite_data,
+		remaining_uncovered_cells_count = ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT,
 	}
 	for &mine in scene.mines {
 		mine = rand.uint32() < ((1 << 32) / 4)
-		scene.remaining_mines_count += mine == true
+		scene.remaining_uncovered_cells_count -= cast(int)mine
 	}
 
 	x11_put_image(
