@@ -24,6 +24,7 @@ Rect :: struct {
 }
 
 Asset_kind :: enum {
+	Covered,
 	// Digit_0,
 	// Digit_1,
 	// Digit_2,
@@ -44,7 +45,6 @@ Asset_kind :: enum {
 	Uncovered_6,
 	Uncovered_7,
 	Uncovered_8,
-	Covered,
 	// Flag,
 	Mine_exploded,
 	// Mine_barred,
@@ -600,6 +600,8 @@ Scene :: struct {
 	sprite_width:           u16,
 	sprite_height:          u16,
 	entities:               [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Asset_kind,
+	// TODO: Bitfield?
+	entities_mines:         [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 }
 
 wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
@@ -774,8 +776,8 @@ main :: proc() {
 		sprite_height          = cast(u16)sprite.height,
 		sprite_data            = sprite_data,
 	}
-	for &entity in scene.entities {
-		entity = rand.choice_enum(Asset_kind)
+	for &entity_mine in scene.entities_mines {
+		entity_mine = rand.uint32() < ((1 << 32) / 2)
 	}
 
 	x11_put_image(
