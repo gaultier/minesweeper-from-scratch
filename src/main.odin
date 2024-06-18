@@ -734,12 +734,10 @@ main :: proc() {
 		sprite_data[i * 4 + 3] = 0 // pad
 	}
 
-
 	auth_token, ok := load_x11_auth_token()
 
 	socket := connect_x11_socket()
 	connection_information := x11_handshake(socket, &auth_token)
-	fmt.println(connection_information)
 
 	gc_id := next_x11_id(0, connection_information)
 	x11_create_graphical_context(socket, gc_id, connection_information.root_screen.id)
