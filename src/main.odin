@@ -569,7 +569,7 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 	rect_mine_exploded := ASSET_COORDINATES[.Mine_exploded]
 	rect_covered := ASSET_COORDINATES[.Covered]
 
-	for entity, i in scene.entities {
+	for entity, i in scene.displayed_entities {
 		rect := ASSET_COORDINATES[entity]
 		column: u16 = cast(u16)i % ENTITIES_COLUMN_COUNT
 		row: u16 = cast(u16)i / ENTITIES_COLUMN_COUNT
@@ -602,9 +602,9 @@ Scene :: struct {
 	sprite_pixmap_id:       u32,
 	sprite_width:           u16,
 	sprite_height:          u16,
-	entities:               [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
+	displayed_entities:     [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
 	// TODO: Bitfield?
-	entities_mines:         [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
+	mines:                  [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 }
 
 wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
@@ -712,22 +712,22 @@ x11_copy_area :: proc(
 on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 	idx, row, column := locate_entity_by_coordinate(x, y)
 
-	mined := scene.entities_mines[idx]
+	mined := scene.mines[idx]
 
 	if mined {
-		scene.entities[idx] = .Mine_exploded
-		uncover_all(&scene.entities, &scene.entities_mines)
+		scene.displayed_entities[idx] = .Mine_exploded
+		uncover_all(&scene.displayed_entities, &scene.mines)
 	} else {
 		visited := [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool{}
-		uncover_cells(row, column, &scene.entities, &scene.entities_mines, &visited)
+		uncover_cells(row, column, &scene.displayed_entities, &scene.mines, &visited)
 	}
 }
 
 uncover_all :: proc(
-	entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
+	displayed_entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
 	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 ) {
-	for &entity, i in entities {
+	for &entity, i in displayed_entities {
 		if mines[i] {
 			entity = .Mine_exploded
 		} else {
@@ -743,7 +743,7 @@ uncover_all :: proc(
 uncover_cells :: proc(
 	row: int,
 	column: int,
-	entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
+	displayed_entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
 	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 	visited: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool,
 ) {
@@ -754,34 +754,35 @@ uncover_cells :: proc(
 
 	if mines[i] {return}
 
-	if entities[i] != .Covered {return}
+	if displayed_entities[i] != .Covered {return}
 
 	// Uncover cell.
 	mines_around_count := count_mines_around_cell(row, column, mines[:])
 	assert(mines_around_count <= 8)
 
-	entities[i] = cast(Entity_kind)(cast(int)Entity_kind.Uncovered_0 + mines_around_count)
+	displayed_entities[i] =
+	cast(Entity_kind)(cast(int)Entity_kind.Uncovered_0 + mines_around_count)
 
 	// Uncover neighbors.
 
 	// Up.
 	if !(row == 0) {
-		uncover_cells(row - 1, column, entities, mines, visited)
+		uncover_cells(row - 1, column, displayed_entities, mines, visited)
 	}
 
 	// Right
 	if !(column == (ENTITIES_COLUMN_COUNT - 1)) {
-		uncover_cells(row, column + 1, entities, mines, visited)
+		uncover_cells(row, column + 1, displayed_entities, mines, visited)
 	}
 
 	// Bottom.
 	if !(row == (ENTITIES_ROW_COUNT - 1)) {
-		uncover_cells(row + 1, column, entities, mines, visited)
+		uncover_cells(row + 1, column, displayed_entities, mines, visited)
 	}
 
 	// Left.
 	if !(column == 0) {
-		uncover_cells(row, column - 1, entities, mines, visited)
+		uncover_cells(row, column - 1, displayed_entities, mines, visited)
 	}
 }
 
@@ -796,30 +797,35 @@ row_column_to_idx :: #force_inline proc(row: int, column: int) -> int {
 	return cast(int)row * ENTITIES_COLUMN_COUNT + cast(int)column
 }
 
-count_mines_around_cell :: proc(row: int, column: int, entities: []bool) -> int {
+count_mines_around_cell :: proc(row: int, column: int, displayed_entities: []bool) -> int {
 	// TODO: Pad the border to elide all bound checks?
 
-	up_left := row == 0 || column == 0 ? false : entities[row_column_to_idx(row - 1, column - 1)]
-	up := row == 0 ? false : entities[row_column_to_idx(row - 1, column)]
+	up_left :=
+		row == 0 || column == 0 \
+		? false \
+		: displayed_entities[row_column_to_idx(row - 1, column - 1)]
+	up := row == 0 ? false : displayed_entities[row_column_to_idx(row - 1, column)]
 	up_right :=
 		row == 0 || column == (ENTITIES_COLUMN_COUNT - 1) \
 		? false \
-		: entities[row_column_to_idx(row - 1, column + 1)]
+		: displayed_entities[row_column_to_idx(row - 1, column + 1)]
 	right :=
 		column == (ENTITIES_COLUMN_COUNT - 1) \
 		? false \
-		: entities[row_column_to_idx(row, column + 1)]
+		: displayed_entities[row_column_to_idx(row, column + 1)]
 	bottom_right :=
 		row == (ENTITIES_ROW_COUNT - 1) || column == (ENTITIES_COLUMN_COUNT - 1) \
 		? false \
-		: entities[row_column_to_idx(row + 1, column + 1)]
+		: displayed_entities[row_column_to_idx(row + 1, column + 1)]
 	bottom :=
-		row == (ENTITIES_ROW_COUNT - 1) ? false : entities[row_column_to_idx(row + 1, column)]
+		row == (ENTITIES_ROW_COUNT - 1) \
+		? false \
+		: displayed_entities[row_column_to_idx(row + 1, column)]
 	bottom_left :=
 		column == 0 || row == (ENTITIES_COLUMN_COUNT - 1) \
 		? false \
-		: entities[row_column_to_idx(row + 1, column - 1)]
-	left := column == 0 ? false : entities[row_column_to_idx(row, column - 1)]
+		: displayed_entities[row_column_to_idx(row + 1, column - 1)]
+	left := column == 0 ? false : displayed_entities[row_column_to_idx(row, column - 1)]
 
 
 	return(
@@ -932,8 +938,8 @@ main :: proc() {
 		sprite_height          = cast(u16)sprite.height,
 		sprite_data            = sprite_data,
 	}
-	for &entity_mine in scene.entities_mines {
-		entity_mine = rand.uint32() < ((1 << 32) / 2)
+	for &mine in scene.mines {
+		mine = rand.uint32() < ((1 << 32) / 4)
 	}
 
 	x11_put_image(
