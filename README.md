@@ -2,6 +2,6 @@
 
 `odin build src -o:speed`
 
-![Screencast](screencast.webm)
+https://github.com/gaultier/minesweeper-from-scratch/raw/master/screencast.webm
 
 
