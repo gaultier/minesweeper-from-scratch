@@ -688,7 +688,7 @@ reset :: proc(scene: ^Scene) {
 	}
 
 	for &mine in scene.mines {
-		mine = rand.uint32() < ((1 << 32) / 4)
+		mine = rand.uint32() < ((1 << 32) >> 3)
 	}
 }
 
