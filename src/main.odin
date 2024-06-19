@@ -365,11 +365,13 @@ x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionIn
 		assert(n_read == size_of(screen))
 	}
 
-	return (ConnectionInformation {
-				resource_id_base = dynamic_response.resource_id_base,
-				resource_id_mask = dynamic_response.resource_id_mask,
-				root_screen = screen,
-			})
+	return(
+		ConnectionInformation {
+			resource_id_base = dynamic_response.resource_id_base,
+			resource_id_mask = dynamic_response.resource_id_mask,
+			root_screen = screen,
+		} \
+	)
 }
 
 next_x11_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
@@ -688,7 +690,7 @@ reset :: proc(scene: ^Scene) {
 	}
 
 	for &mine in scene.mines {
-		mine = rand.uint32() < ((1 << 32) >> 3)
+		mine = rand.choice([]bool{true, false, false, false})
 	}
 }
 

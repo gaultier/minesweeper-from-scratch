@@ -2,4 +2,6 @@
 
 `odin build src -o:speed`
 
+![Screencast](screencast.webm)
+
 
