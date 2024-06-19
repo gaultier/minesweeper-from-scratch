@@ -128,11 +128,9 @@ read_x11_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 		assert(n_read == size_of(address_len))
 	}
 
-	address := [256]u8{}
+	address := make([]u8, address_len)
 	{
-		assert(address_len <= len(address))
-
-		n_read, err := bytes.buffer_read(buffer, address[:address_len])
+		n_read, err := bytes.buffer_read(buffer, address)
 		assert(err == .None)
 		assert(n_read == cast(int)address_len)
 	}
@@ -146,11 +144,9 @@ read_x11_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 		assert(n_read == size_of(display_number_len))
 	}
 
-	display_number := [256]u8{}
+	display_number := make([]u8, display_number_len)
 	{
-		assert(display_number_len <= len(display_number))
-
-		n_read, err := bytes.buffer_read(buffer, display_number[:display_number_len])
+		n_read, err := bytes.buffer_read(buffer, display_number)
 		assert(err == .None)
 		assert(n_read == cast(int)display_number_len)
 	}
@@ -164,15 +160,11 @@ read_x11_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 		assert(n_read == size_of(auth_name_len))
 	}
 
-	auth_name := [256]u8{}
+	entry.auth_name = make([]u8, auth_name_len)
 	{
-		assert(auth_name_len <= len(auth_name))
-
-		n_read, err := bytes.buffer_read(buffer, auth_name[:auth_name_len])
+		n_read, err := bytes.buffer_read(buffer, entry.auth_name)
 		assert(err == .None)
 		assert(n_read == cast(int)auth_name_len)
-
-		entry.auth_name = slice.clone(auth_name[:auth_name_len])
 	}
 
 	auth_data_len: u16 = 0
@@ -184,15 +176,11 @@ read_x11_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
 		assert(n_read == size_of(auth_data_len))
 	}
 
-	auth_data := [256]u8{}
+	entry.auth_data = make([]u8, auth_data_len)
 	{
-		assert(auth_data_len <= len(auth_data))
-
-		n_read, err := bytes.buffer_read(buffer, auth_data[:auth_data_len])
+		n_read, err := bytes.buffer_read(buffer, entry.auth_data)
 		assert(err == .None)
 		assert(n_read == cast(int)auth_data_len)
-
-		entry.auth_data = slice.clone(auth_data[:auth_data_len])
 	}
 
 
@@ -232,6 +220,7 @@ load_x11_auth_token :: proc(allocator := context.allocator) -> (token: AuthToken
 		}
 	}
 
+	// Did not find a fitting token.
 	return {}, false
 }
 
