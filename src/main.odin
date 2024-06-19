@@ -592,17 +592,16 @@ ENTITIES_WIDTH :: 16
 ENTITIES_HEIGHT :: 16
 
 Scene :: struct {
-	window_id:                       u32,
-	gc_id:                           u32,
-	connection_information:          ConnectionInformation,
-	sprite_data:                     []u8,
-	sprite_pixmap_id:                u32,
-	sprite_width:                    u16,
-	sprite_height:                   u16,
-	displayed_entities:              [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
+	window_id:              u32,
+	gc_id:                  u32,
+	connection_information: ConnectionInformation,
+	sprite_data:            []u8,
+	sprite_pixmap_id:       u32,
+	sprite_width:           u16,
+	sprite_height:          u16,
+	displayed_entities:     [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
 	// TODO: Bitfield?
-	mines:                           [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
-	remaining_uncovered_cells_count: int,
+	mines:                  [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 }
 
 wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
@@ -686,16 +685,13 @@ wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 	}
 }
 
-reset :: proc (scene: ^Scene) {
-	scene.remaining_uncovered_cells_count = ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT
-
+reset :: proc(scene: ^Scene) {
 	for &entity in scene.displayed_entities {
 		entity = .Covered
 	}
 
 	for &mine in scene.mines {
 		mine = rand.uint32() < ((1 << 32) / 4)
-		scene.remaining_uncovered_cells_count -= cast(int)mine
 	}
 }
 
@@ -758,20 +754,35 @@ on_cell_clicked :: proc(x: u16, y: u16, scene: ^Scene) {
 		uncover_all_cells(&scene.displayed_entities, &scene.mines, .Mine_exploded)
 	} else {
 		visited := [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool{}
-		uncover_cells_flood_fill(
-			row,
-			column,
-			&scene.displayed_entities,
-			&scene.mines,
-			&visited,
-			&scene.remaining_uncovered_cells_count,
-		)
+		uncover_cells_flood_fill(row, column, &scene.displayed_entities, &scene.mines, &visited)
 
 		// Win.
-		if scene.remaining_uncovered_cells_count == 0 {
+		if count_remaining_goals(scene.displayed_entities, scene.mines) == 0 {
 			uncover_all_cells(&scene.displayed_entities, &scene.mines, .Mine_idle)
 		}
 	}
+}
+
+count_remaining_goals :: proc(
+	displayed_entities: [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
+	mines: [ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool,
+) -> int {
+
+	covered := 0
+
+	for entity in displayed_entities {
+		covered += cast(int)(entity == .Covered)
+	}
+
+	mines_count := 0
+
+	for mine in mines {
+		mines_count += cast(int)mine
+	}
+
+	fmt.println(covered, mines_count)
+
+	return covered - mines_count
 }
 
 uncover_all_cells :: proc(
@@ -798,7 +809,6 @@ uncover_cells_flood_fill :: proc(
 	displayed_entities: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]Entity_kind,
 	mines: ^[ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 	visited: ^[ENTITIES_COLUMN_COUNT * ENTITIES_ROW_COUNT]bool,
-	remaining_uncovered_cells_count: ^int,
 ) {
 	i := row_column_to_idx(row, column)
 	if visited[i] {return}
@@ -812,7 +822,6 @@ uncover_cells_flood_fill :: proc(
 
 	// Uncover cell.
 
-	remaining_uncovered_cells_count^ = clamp(remaining_uncovered_cells_count^ - 1, 0, 1 << 32)
 	mines_around_count := count_mines_around_cell(row, column, mines[:])
 	assert(mines_around_count <= 8)
 
@@ -823,50 +832,22 @@ uncover_cells_flood_fill :: proc(
 
 	// Up.
 	if !(row == 0) {
-		uncover_cells_flood_fill(
-			row - 1,
-			column,
-			displayed_entities,
-			mines,
-			visited,
-			remaining_uncovered_cells_count,
-		)
+		uncover_cells_flood_fill(row - 1, column, displayed_entities, mines, visited)
 	}
 
 	// Right
 	if !(column == (ENTITIES_COLUMN_COUNT - 1)) {
-		uncover_cells_flood_fill(
-			row,
-			column + 1,
-			displayed_entities,
-			mines,
-			visited,
-			remaining_uncovered_cells_count,
-		)
+		uncover_cells_flood_fill(row, column + 1, displayed_entities, mines, visited)
 	}
 
 	// Bottom.
 	if !(row == (ENTITIES_ROW_COUNT - 1)) {
-		uncover_cells_flood_fill(
-			row + 1,
-			column,
-			displayed_entities,
-			mines,
-			visited,
-			remaining_uncovered_cells_count,
-		)
+		uncover_cells_flood_fill(row + 1, column, displayed_entities, mines, visited)
 	}
 
 	// Left.
 	if !(column == 0) {
-		uncover_cells_flood_fill(
-			row,
-			column - 1,
-			displayed_entities,
-			mines,
-			visited,
-			remaining_uncovered_cells_count,
-		)
+		uncover_cells_flood_fill(row, column - 1, displayed_entities, mines, visited)
 	}
 }
 
