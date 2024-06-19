@@ -2,6 +2,7 @@ package main
 
 import "core:bytes"
 import "core:c"
+import "core:fmt"
 import "core:image/png"
 import "core:math/bits"
 import "core:math/rand"
@@ -611,6 +612,23 @@ wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 	}
 	assert(size_of(GenericEvent) == 32)
 
+	KeyReleaseEvent :: struct #packed {
+		code:            u8,
+		detail:          u8,
+		sequence_number: u16,
+		time:            u32,
+		root_id:         u32,
+		event:           u32,
+		child_id:        u32,
+		root_x:          u16,
+		root_y:          u16,
+		event_x:         u16,
+		event_y:         u16,
+		state:           u16,
+		same_screen:     bool,
+		pad1:            u8,
+	}
+	assert(size_of(KeyReleaseEvent) == 32)
 
 	ButtonReleaseEvent :: struct #packed {
 		code:        u8,
@@ -636,6 +654,8 @@ wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 	EVENT_BUTTON_PRESS: u8 : 0x4
 	EVENT_BUTTON_RELEASE: u8 : 0x5
 
+	KEYCODE_ENTER: u8 : 36
+
 	for {
 		generic_event := GenericEvent{}
 		n_recv, err := os.recv(socket, mem.ptr_to_bytes(&generic_event), 0)
@@ -650,11 +670,32 @@ wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 		case EVENT_EXPOSURE:
 			render(socket, scene)
 
+		case EVENT_KEY_RELEASE:
+			event := transmute(KeyReleaseEvent)generic_event
+			fmt.println(event)
+			if event.detail == KEYCODE_ENTER {
+				reset(scene)
+				render(socket, scene)
+			}
+
 		case EVENT_BUTTON_RELEASE:
 			event := transmute(ButtonReleaseEvent)generic_event
 			on_cell_clicked(event.event_x, event.event_y, scene)
 			render(socket, scene)
 		}
+	}
+}
+
+reset :: proc (scene: ^Scene) {
+	scene.remaining_uncovered_cells_count = ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT
+
+	for &entity in scene.displayed_entities {
+		entity = .Covered
+	}
+
+	for &mine in scene.mines {
+		mine = rand.uint32() < ((1 << 32) / 4)
+		scene.remaining_uncovered_cells_count -= cast(int)mine
 	}
 }
 
@@ -974,19 +1015,15 @@ main :: proc() {
 		img_depth,
 	)
 	scene := Scene {
-		window_id                       = window_id,
-		gc_id                           = gc_id,
-		sprite_pixmap_id                = pixmap_id,
-		connection_information          = connection_information,
-		sprite_width                    = cast(u16)sprite.width,
-		sprite_height                   = cast(u16)sprite.height,
-		sprite_data                     = sprite_data,
-		remaining_uncovered_cells_count = ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT,
+		window_id              = window_id,
+		gc_id                  = gc_id,
+		sprite_pixmap_id       = pixmap_id,
+		connection_information = connection_information,
+		sprite_width           = cast(u16)sprite.width,
+		sprite_height          = cast(u16)sprite.height,
+		sprite_data            = sprite_data,
 	}
-	for &mine in scene.mines {
-		mine = rand.uint32() < ((1 << 32) / 4)
-		scene.remaining_uncovered_cells_count -= cast(int)mine
-	}
+	reset(&scene)
 
 	x11_put_image(
 		socket,
