@@ -1,7 +1,6 @@
 package main
 
 import "core:bytes"
-import "core:c"
 import "core:image/png"
 import "core:math/bits"
 import "core:math/rand"
@@ -239,7 +238,7 @@ load_x11_auth_token :: proc(allocator := context.allocator) -> (token: AuthToken
 connect_x11_socket :: proc() -> os.Socket {
 	SockaddrUn :: struct #packed {
 		sa_family: os.ADDRESS_FAMILY,
-		sa_data:   [108]c.char,
+		sa_data:   [108]u8,
 	}
 
 	socket, err := os.socket(os.AF_UNIX, os.SOCK_STREAM, 0)
