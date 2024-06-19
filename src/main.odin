@@ -2,7 +2,6 @@ package main
 
 import "core:bytes"
 import "core:c"
-import "core:fmt"
 import "core:image/png"
 import "core:math/bits"
 import "core:math/rand"
@@ -671,7 +670,6 @@ wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 
 		case EVENT_KEY_RELEASE:
 			event := transmute(KeyReleaseEvent)generic_event
-			fmt.println(event)
 			if event.detail == KEYCODE_ENTER {
 				reset(scene)
 				render(socket, scene)
@@ -779,8 +777,6 @@ count_remaining_goals :: proc(
 	for mine in mines {
 		mines_count += cast(int)mine
 	}
-
-	fmt.println(covered, mines_count)
 
 	return covered - mines_count
 }
