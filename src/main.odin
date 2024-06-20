@@ -542,15 +542,6 @@ x11_put_image :: proc(
 }
 
 render :: proc(socket: os.Socket, scene: ^Scene) {
-	uncovered_count := 0
-	for entity in scene.displayed_entities {
-		uncovered_count += (entity == .Covered)
-	}
-	mine_count := 0
-	for mine in scene.mines {
-		mine_count += cast(int)mine
-	}
-
 	for entity, i in scene.displayed_entities {
 		rect := ASSET_COORDINATES[entity]
 		column: u16 = cast(u16)i % ENTITIES_COLUMN_COUNT
@@ -577,16 +568,12 @@ ENTITIES_WIDTH :: 16
 ENTITIES_HEIGHT :: 16
 
 Scene :: struct {
-	window_id:              u32,
-	gc_id:                  u32,
-	connection_information: ConnectionInformation,
-	sprite_data:            []u8,
-	sprite_pixmap_id:       u32,
-	sprite_width:           u16,
-	sprite_height:          u16,
-	displayed_entities:     [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
+	window_id:          u32,
+	gc_id:              u32,
+	sprite_pixmap_id:   u32,
+	displayed_entities: [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]Entity_kind,
 	// TODO: Bitfield?
-	mines:                  [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
+	mines:              [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 }
 
 wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
@@ -978,13 +965,9 @@ main :: proc() {
 		img_depth,
 	)
 	scene := Scene {
-		window_id              = window_id,
-		gc_id                  = gc_id,
-		sprite_pixmap_id       = pixmap_id,
-		connection_information = connection_information,
-		sprite_width           = cast(u16)sprite.width,
-		sprite_height          = cast(u16)sprite.height,
-		sprite_data            = sprite_data,
+		window_id        = window_id,
+		gc_id            = gc_id,
+		sprite_pixmap_id = pixmap_id,
 	}
 	reset(&scene)
 
@@ -992,12 +975,12 @@ main :: proc() {
 		socket,
 		scene.sprite_pixmap_id,
 		scene.gc_id,
-		scene.sprite_width,
-		scene.sprite_height,
+		cast(u16)sprite.width,
+		cast(u16)sprite.height,
 		0,
 		0,
 		img_depth,
-		scene.sprite_data,
+		sprite_data,
 	)
 
 	x11_map_window(socket, window_id)
