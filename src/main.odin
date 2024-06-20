@@ -620,9 +620,7 @@ wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 	assert(size_of(ButtonReleaseEvent) == 32)
 
 	EVENT_EXPOSURE: u8 : 0xc
-	EVENT_KEY_PRESS: u8 : 0x2
 	EVENT_KEY_RELEASE: u8 : 0x3
-	EVENT_BUTTON_PRESS: u8 : 0x4
 	EVENT_BUTTON_RELEASE: u8 : 0x5
 
 	KEYCODE_ENTER: u8 : 36
