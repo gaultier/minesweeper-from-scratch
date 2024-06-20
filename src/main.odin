@@ -222,31 +222,26 @@ load_x11_auth_token :: proc(allocator := context.allocator) -> (token: AuthToken
 	return {}, false
 }
 
-connect_x11_socket :: proc() -> os.Socket {
-	SockaddrUn :: struct #packed {
-		sa_family: os.ADDRESS_FAMILY,
-		sa_data:   [108]u8,
-	}
-
-	socket, err := os.socket(os.AF_UNIX, os.SOCK_STREAM, 0)
-	assert(err == os.ERROR_NONE)
+connect_x11_socket :: proc() -> linux.Fd {
+	socket, err := linux.socket(.UNIX, .STREAM, nil, .IPv4)
+	assert(err == .NONE)
 
 	possible_socket_paths := [2]string{"/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"}
 	for &socket_path in possible_socket_paths {
-		addr := SockaddrUn {
-			sa_family = cast(u16)os.AF_UNIX,
+		addr := linux.Sock_Addr_Un {
+			sun_family = .UNIX,
 		}
-		mem.copy_non_overlapping(&addr.sa_data, raw_data(socket_path), len(socket_path))
+		mem.copy_non_overlapping(&addr.sun_path, raw_data(socket_path), len(socket_path))
 
-		err = os.connect(socket, cast(^os.SOCKADDR)&addr, size_of(addr))
-		if (err == os.ERROR_NONE) {return socket}
+		err = linux.connect(socket, &addr)
+		if (err == .NONE) {return socket}
 	}
 
 	os.exit(1)
 }
 
 
-x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionInformation {
+x11_handshake :: proc(socket: linux.Fd, auth_token: ^AuthToken) -> ConnectionInformation {
 
 	Request :: struct #packed {
 		endianness:             u8,
@@ -294,8 +289,8 @@ x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionIn
 
 	static_response := StaticResponse{}
 	{
-		n_recv, err := os.recv(socket, mem.ptr_to_bytes(&static_response), 0)
-		assert(err == os.ERROR_NONE)
+		n_recv, err := linux.recv(socket, mem.ptr_to_bytes(&static_response), {})
+		assert(err == .NONE)
 		assert(n_recv == size_of(StaticResponse))
 		assert(static_response.success == 1)
 	}
@@ -305,9 +300,9 @@ x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionIn
 	{
 		assert(len(recv_buf) >= cast(u32)static_response.length * 4)
 
-		n_recv, err := os.recv(socket, recv_buf[:], 0)
-		assert(err == os.ERROR_NONE)
-		assert(n_recv == cast(u32)static_response.length * 4)
+		n_recv, err := linux.recv(socket, recv_buf[:], {})
+		assert(err == .NONE)
+		assert(n_recv == cast(int)static_response.length * 4)
 	}
 
 
@@ -365,7 +360,7 @@ next_x11_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
 	return 1 + ((info.resource_id_mask & (current_id)) | info.resource_id_base)
 }
 
-x11_create_graphical_context :: proc(socket: os.Socket, gc_id: u32, root_id: u32) {
+x11_create_graphical_context :: proc(socket: linux.Fd, gc_id: u32, root_id: u32) {
 	opcode: u8 : 55
 	FLAG_GC_BG: u32 : 8
 	BITMASK: u32 : FLAG_GC_BG
@@ -390,14 +385,14 @@ x11_create_graphical_context :: proc(socket: os.Socket, gc_id: u32, root_id: u32
 	}
 
 	{
-		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
-		assert(err == os.ERROR_NONE)
+		n_sent, err := linux.send(socket, mem.ptr_to_bytes(&request), linux.Socket_Msg{})
+		assert(err == .NONE)
 		assert(n_sent == size_of(Request))
 	}
 }
 
 x11_create_window :: proc(
-	socket: os.Socket,
+	socket: linux.Fd,
 	window_id: u32,
 	parent_id: u32,
 	x: u16,
@@ -457,13 +452,13 @@ x11_create_window :: proc(
 	}
 
 	{
-		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
-		assert(err == os.ERROR_NONE)
+		n_sent, err := linux.send(socket, mem.ptr_to_bytes(&request), linux.Socket_Msg{})
+		assert(err == .NONE)
 		assert(n_sent == size_of(Request))
 	}
 }
 
-x11_map_window :: proc(socket: os.Socket, window_id: u32) {
+x11_map_window :: proc(socket: linux.Fd, window_id: u32) {
 	opcode: u8 : 8
 
 	Request :: struct #packed {
@@ -478,15 +473,15 @@ x11_map_window :: proc(socket: os.Socket, window_id: u32) {
 		window_id      = window_id,
 	}
 	{
-		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
-		assert(err == os.ERROR_NONE)
+		n_sent, err := linux.send(socket, mem.ptr_to_bytes(&request), linux.Socket_Msg{})
+		assert(err == .NONE)
 		assert(n_sent == size_of(Request))
 	}
 
 }
 
 x11_put_image :: proc(
-	socket: os.Socket,
+	socket: linux.Fd,
 	drawable_id: u32,
 	gc_id: u32,
 	width: u16,
@@ -543,7 +538,7 @@ x11_put_image :: proc(
 	}
 }
 
-render :: proc(socket: os.Socket, scene: ^Scene) {
+render :: proc(socket: linux.Fd, scene: ^Scene) {
 	for entity, i in scene.displayed_entities {
 		rect := ASSET_COORDINATES[entity]
 		row, column := idx_to_row_column(i)
@@ -577,7 +572,7 @@ Scene :: struct {
 	mines:              [ENTITIES_ROW_COUNT * ENTITIES_COLUMN_COUNT]bool,
 }
 
-wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
+wait_for_x11_events :: proc(socket: linux.Fd, scene: ^Scene) {
 	GenericEvent :: struct #packed {
 		code: u8,
 		pad:  [31]u8,
@@ -628,12 +623,12 @@ wait_for_x11_events :: proc(socket: os.Socket, scene: ^Scene) {
 
 	for {
 		generic_event := GenericEvent{}
-		n_recv, err := os.recv(socket, mem.ptr_to_bytes(&generic_event), 0)
-		if err == os.EPIPE || n_recv == 0 {
+		n_recv, err := linux.recv(socket, mem.ptr_to_bytes(&generic_event), {})
+		if err == .EPIPE || n_recv == 0 {
 			os.exit(0) // The end.
 		}
 
-		assert(err == os.ERROR_NONE)
+		assert(err == .NONE)
 		assert(n_recv == size_of(GenericEvent))
 
 		switch generic_event.code {
@@ -666,7 +661,7 @@ reset :: proc(scene: ^Scene) {
 }
 
 x11_copy_area :: proc(
-	socket: os.Socket,
+	socket: linux.Fd,
 	src_id: u32,
 	dst_id: u32,
 	gc_id: u32,
@@ -707,8 +702,8 @@ x11_copy_area :: proc(
 		height         = height,
 	}
 	{
-		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
-		assert(err == os.ERROR_NONE)
+		n_sent, err := linux.send(socket, mem.ptr_to_bytes(&request), linux.Socket_Msg{})
+		assert(err == .NONE)
 		assert(n_sent == size_of(Request))
 	}
 }
@@ -883,7 +878,7 @@ locate_entity_by_coordinate :: proc(win_x: u16, win_y: u16) -> (idx: int, row: i
 }
 
 x11_create_pixmap :: proc(
-	socket: os.Socket,
+	socket: linux.Fd,
 	window_id: u32,
 	pixmap_id: u32,
 	width: u16,
@@ -913,8 +908,8 @@ x11_create_pixmap :: proc(
 	}
 
 	{
-		n_sent, err := os.send(socket, mem.ptr_to_bytes(&request), 0)
-		assert(err == os.ERROR_NONE)
+		n_sent, err := linux.send(socket, mem.ptr_to_bytes(&request), linux.Socket_Msg{})
+		assert(err == linux.Errno.NONE)
 		assert(n_sent == size_of(Request))
 	}
 }
