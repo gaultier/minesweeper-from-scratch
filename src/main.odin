@@ -14,11 +14,9 @@ import "core:testing"
 TILE_WIDTH :: 16
 TILE_HEIGHT :: 16
 
-Rect :: struct {
+Position :: struct {
 	x: u16,
 	y: u16,
-	w: u16,
-	h: u16,
 }
 
 Entity_kind :: enum {
@@ -51,19 +49,19 @@ Entity_kind :: enum {
 	// Uncovered_question_mark,
 }
 
-ASSET_COORDINATES: [Entity_kind]Rect = {
-	.Uncovered_0 = {x = 0 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_1 = {x = 1 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_2 = {x = 2 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_3 = {x = 3 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_4 = {x = 4 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_5 = {x = 5 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_6 = {x = 6 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_7 = {x = 7 * 16, y = 22, w = 16, h = 16},
-	.Uncovered_8 = {x = 8 * 16, y = 22, w = 16, h = 16},
-	.Covered = {x = 0, y = 38, w = 16, h = 16},
-	.Mine_exploded = {x = 32, y = 40, w = 16, h = 16},
-	.Mine_idle = {x = 64, y = 40, w = 16, h = 16},
+ASSET_COORDINATES: [Entity_kind]Position = {
+	.Uncovered_0 = {x = 0 * 16, y = 22},
+	.Uncovered_1 = {x = 1 * 16, y = 22},
+	.Uncovered_2 = {x = 2 * 16, y = 22},
+	.Uncovered_3 = {x = 3 * 16, y = 22},
+	.Uncovered_4 = {x = 4 * 16, y = 22},
+	.Uncovered_5 = {x = 5 * 16, y = 22},
+	.Uncovered_6 = {x = 6 * 16, y = 22},
+	.Uncovered_7 = {x = 7 * 16, y = 22},
+	.Uncovered_8 = {x = 8 * 16, y = 22},
+	.Covered = {x = 0, y = 38},
+	.Mine_exploded = {x = 32, y = 40},
+	.Mine_idle = {x = 64, y = 40},
 }
 
 AuthToken :: [16]u8
@@ -354,13 +352,11 @@ x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionIn
 		assert(n_read == size_of(screen))
 	}
 
-	return(
-		ConnectionInformation {
-			resource_id_base = dynamic_response.resource_id_base,
-			resource_id_mask = dynamic_response.resource_id_mask,
-			root_screen = screen,
-		} \
-	)
+	return (ConnectionInformation {
+				resource_id_base = dynamic_response.resource_id_base,
+				resource_id_mask = dynamic_response.resource_id_mask,
+				root_screen = screen,
+			})
 }
 
 next_x11_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
@@ -569,8 +565,8 @@ render :: proc(socket: os.Socket, scene: ^Scene) {
 			rect.y,
 			column * ENTITIES_WIDTH,
 			row * ENTITIES_HEIGHT,
-			rect.w,
-			rect.h,
+			ENTITIES_WIDTH,
+			ENTITIES_HEIGHT,
 		)
 	}
 }
