@@ -8,6 +8,7 @@ import "core:mem"
 import "core:os"
 import "core:path/filepath"
 import "core:slice"
+import "core:strings"
 import "core:sys/linux"
 import "core:testing"
 
@@ -223,6 +224,8 @@ load_x11_auth_token :: proc(allocator := context.allocator) -> (token: AuthToken
 }
 
 connect_x11_socket :: proc() -> os.Socket {
+	defer free_all(context.temp_allocator)
+
 	SockaddrUn :: struct #packed {
 		sa_family: os.ADDRESS_FAMILY,
 		sa_data:   [108]u8,
@@ -231,7 +234,14 @@ connect_x11_socket :: proc() -> os.Socket {
 	socket, err := os.socket(os.AF_UNIX, os.SOCK_STREAM, 0)
 	assert(err == os.ERROR_NONE)
 
-	possible_socket_paths := [2]string{"/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"}
+	display_env := strings.trim_left(os.get_env("DISPLAY"), ":")
+	display_socket := strings.concatenate(
+		[]string{"/tmp/.X11-unix/X", display_env},
+		allocator = context.temp_allocator,
+	)
+
+	possible_socket_paths := [3]string{display_socket, "/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"}
+
 	for &socket_path in possible_socket_paths {
 		addr := SockaddrUn {
 			sa_family = cast(u16)os.AF_UNIX,
@@ -242,7 +252,8 @@ connect_x11_socket :: proc() -> os.Socket {
 		if (err == os.ERROR_NONE) {return socket}
 	}
 
-	os.exit(1)
+	assert(false)
+	return {}
 }
 
 
@@ -352,13 +363,11 @@ x11_handshake :: proc(socket: os.Socket, auth_token: ^AuthToken) -> ConnectionIn
 		assert(n_read == size_of(screen))
 	}
 
-	return(
-		ConnectionInformation {
-			resource_id_base = dynamic_response.resource_id_base,
-			resource_id_mask = dynamic_response.resource_id_mask,
-			root_screen = screen,
-		} \
-	)
+	return (ConnectionInformation {
+				resource_id_base = dynamic_response.resource_id_base,
+				resource_id_mask = dynamic_response.resource_id_mask,
+				root_screen = screen,
+			})
 }
 
 next_x11_id :: proc(current_id: u32, info: ConnectionInformation) -> u32 {
