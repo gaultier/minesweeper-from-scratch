@@ -8,6 +8,7 @@ import "core:mem"
 import "core:os"
 import "core:path/filepath"
 import "core:slice"
+import "core:strings"
 import "core:sys/linux"
 import "core:testing"
 
@@ -231,7 +232,9 @@ connect_x11_socket :: proc() -> os.Socket {
 	socket, err := os.socket(os.AF_UNIX, os.SOCK_STREAM, 0)
 	assert(err == os.ERROR_NONE)
 
-	possible_socket_paths := [2]string{"/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"}
+	display_env := strings.trim_left(os.get_env("DISPLAY"), ":")
+	display_socket := strings.concatenate([]string{"/tmp/.X11-unix/X", display_env})
+	possible_socket_paths := [3]string{display_socket, "/tmp/.X11-unix/X0", "/tmp/.X11-unix/X1"}
 	for &socket_path in possible_socket_paths {
 		addr := SockaddrUn {
 			sa_family = cast(u16)os.AF_UNIX,
