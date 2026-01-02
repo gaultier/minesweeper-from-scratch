@@ -104,7 +104,7 @@ AUTH_ENTRY_MAGIC_COOKIE: string : "MIT-MAGIC-COOKIE-1"
 
 round_up_4 :: #force_inline proc(x: u32) -> u32 {
 	mask: i32 = -4
-	return transmute(u32)((transmute(i32)x + 3) & mask)
+	return cast(u32)((cast(i32)x + 3) & mask)
 }
 
 read_x11_auth_entry :: proc(buffer: ^bytes.Buffer) -> (AuthEntry, bool) {
@@ -193,9 +193,7 @@ load_x11_auth_token :: proc(allocator := context.allocator) -> (token: AuthToken
 	filename_env := os.get_env("XAUTHORITY")
 
 	filename :=
-		len(filename_env) != 0 \
-		? filename_env \
-		: filepath.join([]string{os.get_env("HOME"), ".Xauthority"})
+		len(filename_env) != 0 ? filename_env : filepath.join([]string{os.get_env("HOME"), ".Xauthority"})
 
 	data := os.read_entire_file_from_filename(filename) or_return
 
@@ -836,37 +834,25 @@ idx_to_row_column :: #force_inline proc(i: int) -> (int, int) {
 }
 
 row_column_to_idx :: #force_inline proc(row: int, column: int) -> int {
-	return cast(int)row * ENTITIES_COLUMN_COUNT + cast(int)column
+	return row * ENTITIES_COLUMN_COUNT + column
 }
 
 count_mines_around_cell :: proc(row: int, column: int, displayed_entities: []bool) -> int {
 	// TODO: Pad the border to elide all bound checks?
 
 	up_left :=
-		row == 0 || column == 0 \
-		? false \
-		: displayed_entities[row_column_to_idx(row - 1, column - 1)]
+		row == 0 || column == 0 ? false : displayed_entities[row_column_to_idx(row - 1, column - 1)]
 	up := row == 0 ? false : displayed_entities[row_column_to_idx(row - 1, column)]
 	up_right :=
-		row == 0 || column == (ENTITIES_COLUMN_COUNT - 1) \
-		? false \
-		: displayed_entities[row_column_to_idx(row - 1, column + 1)]
+		row == 0 || column == (ENTITIES_COLUMN_COUNT - 1) ? false : displayed_entities[row_column_to_idx(row - 1, column + 1)]
 	right :=
-		column == (ENTITIES_COLUMN_COUNT - 1) \
-		? false \
-		: displayed_entities[row_column_to_idx(row, column + 1)]
+		column == (ENTITIES_COLUMN_COUNT - 1) ? false : displayed_entities[row_column_to_idx(row, column + 1)]
 	bottom_right :=
-		row == (ENTITIES_ROW_COUNT - 1) || column == (ENTITIES_COLUMN_COUNT - 1) \
-		? false \
-		: displayed_entities[row_column_to_idx(row + 1, column + 1)]
+		row == (ENTITIES_ROW_COUNT - 1) || column == (ENTITIES_COLUMN_COUNT - 1) ? false : displayed_entities[row_column_to_idx(row + 1, column + 1)]
 	bottom :=
-		row == (ENTITIES_ROW_COUNT - 1) \
-		? false \
-		: displayed_entities[row_column_to_idx(row + 1, column)]
+		row == (ENTITIES_ROW_COUNT - 1) ? false : displayed_entities[row_column_to_idx(row + 1, column)]
 	bottom_left :=
-		column == 0 || row == (ENTITIES_COLUMN_COUNT - 1) \
-		? false \
-		: displayed_entities[row_column_to_idx(row + 1, column - 1)]
+		column == 0 || row == (ENTITIES_COLUMN_COUNT - 1) ? false : displayed_entities[row_column_to_idx(row + 1, column - 1)]
 	left := column == 0 ? false : displayed_entities[row_column_to_idx(row, column - 1)]
 
 
